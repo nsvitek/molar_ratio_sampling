@@ -40,6 +40,30 @@ round(Q2/10,0)==round(Q.pred/10,0) #check, some fuzziness for infinity
 # 1 < Q < Inf
 # -Inf < B < 0
 
+#Note, the strict ICM line is where Q = 2 and B = -1. 
+#according to covariance variance and covariance rules, matching Roseman and Delezene,
+# var(m3) = Q^2 * var(m2) + B^2 * var(m1) - 2 * Q * B * Cov(m2, m1)
+
+ICM_var<-function(m1,m3){
+  # m3<-3*m2-(2*m1)
+  m2<-(m3+(2*m1))/3
+  total<-m1+m2+m3
+  m2_relative<-m2/total
+  return(m2_relative)
+}
+ICM<-function(m1,m3){
+  # m3<-1.9*m2-(0.9*m1)
+  m2<-(m3+(1.0*m1))/2
+  total<-m1+m2+m3
+  m2_relative<-m2/total
+  return(m2_relative)
+}
+ICM_var(1,0.1)
+ICM_var(1,0.4)
+ICM_var(1,0.9)
+ICM(1,0.4)
+ICM(1,0.9)
+
 # match variables ###############################################
 #Axes of AD space are:
 # X = m1/(m1 + m2 + m3)

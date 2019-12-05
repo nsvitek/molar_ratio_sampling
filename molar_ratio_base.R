@@ -6,12 +6,12 @@ library(dplyr) #organize
 library(ggplot2) #plot
 # library(gridExtra) #plot
 library(ggforce) #allows drawing circles and ellipses
-library(scales) #allows use of standard colors. May not be completely necessary
+# library(scales) #allows use of standard colors. May not be completely necessary
+# library(ggthemes) #to get Paul Tol colors
 library(readxl) #read raw data
 library(reshape2) #for reformatting & comparing CV, measurement error data
-# library(ggthemes) #to get Paul Tol colors
 library(lmodel2) #for RMA regression
-library(moments) #for kurtosis
+# library(moments) #for kurtosis
 
 locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
 # locateScripts<-"C:/scripts/scripts"

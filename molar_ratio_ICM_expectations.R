@@ -219,42 +219,38 @@ mouseL.estimated.table$V.m3.prop<-(proportionL.model.test$VCV[,"traitprop.m3L:tr
                                      avg.repeat["area"]) %>% as.numeric
 
 #Put calculations on standard scales for plot:area  -------
-#look at summary statistics. Is zero part of the probability density interval (= model and data match)?
-HPDinterval(as.mcmc(mouseA.model.table-mouseA.estimated.table)) %>% round(.,5)
+# #look at summary statistics. Is zero part of the probability density interval (= model and data match)?
+# HPDinterval(as.mcmc(mouseA.model.table-mouseA.estimated.table)) %>% round(.,5)
 
 p1<-Transform.Expectations(mouseA.estimated.table,mouseA.model.table)
 
 #make a Roseman & Delezene-style plot
 pdf("output/mouse_ICM_predictions_area.pdf")
-plot(1:7,NULL, type = "n", ylim = c(0,190),xlim = c(0.5,7.5),xlab = "",
-     ylab = "Observed/Expected X 100", xaxt="n")
+plot(1:6,NULL, type = "n", ylim = c(-0.10,1.90),xlim = c(0.5,6.5),xlab = "",
+     ylab = "Observed/Expected", xaxt="n")
 
-points(1:7,c(p1$M1.M3.cov.relative.delta[1],p1$M2.M3.cov.relative.delta[1], 
-             p1$mstd.M3.relative.delta.summary[1],p1$M3.var.relative.delta[1],
-             p1$M3.var.Young.relative.delta[1],p1$M3.means.relative.delta[1],
-             p1$M2.prop.relative.delta[1]),pch = 19, cex = 3)
+points(1:6,c(p1$M3.means.relative.delta[1],p1$M2.prop.relative.delta[1],
+             p1$M3.var.Young.relative.delta[1], p1$M3.var.relative.delta[1],
+             p1$M1.M3.cov.relative.delta[1],p1$M2.M3.cov.relative.delta[1]),pch = 19, cex = 3)
 
-segments(1:7,c(p1$M1.M3.cov.relative.delta[2],p1$M2.M3.cov.relative.delta[2], 
-               p1$mstd.M3.relative.delta.summary[2],p1$M3.var.relative.delta[2],
-               p1$M3.var.Young.relative.delta[2],p1$M3.means.relative.delta[2],
-               p1$M2.prop.relative.delta[2]),
-         1:7,c(p1$M1.M3.cov.relative.delta[3],p1$M2.M3.cov.relative.delta[3], 
-               p1$mstd.M3.relative.delta.summary[3],p1$M3.var.relative.delta[3],
-               p1$M3.var.Young.relative.delta[3],p1$M3.means.relative.delta[3],
-               p1$M2.prop.relative.delta[3]),lwd = 3)
+segments(1:6,c(p1$M3.means.relative.delta[2],p1$M2.prop.relative.delta[2],
+               p1$M3.var.Young.relative.delta[2],p1$M3.var.relative.delta[2], 
+               p1$M1.M3.cov.relative.delta[2],p1$M2.M3.cov.relative.delta[2]),
+         1:6,c(p1$M3.means.relative.delta[3],p1$M2.prop.relative.delta[3],
+               p1$M3.var.Young.relative.delta[3],p1$M3.var.relative.delta[3], 
+               p1$M1.M3.cov.relative.delta[3],p1$M2.M3.cov.relative.delta[3]),lwd = 3)
 
 #add expectations line
-segments(0.175,100,7.3,100,lty = 3, lwd= 3, col = "darkgrey")
+segments(0.175,1.00,7.3,1.00,lty = 3, lwd= 3, col = "darkgrey")
 
 #add labels
-text(2.5,175,"area")
-text(1,10,expression(sigma(M[1],M[3])),cex=0.8)
-text(2,10,expression(sigma(M[2],M[3])),cex=0.8)
-text(3,10,expression(frac(sigma^2*(M[3]),mu^2)),cex=0.8)
-text(4,10,expression(sigma^2*(M[3])),cex=0.8)
-text(5,10,expression(sigma^2*(M[3-Rel])),cex=0.8)
-text(6,10,expression(mu*(M[3])),cex=0.8)
-text(7,10,expression(mu*M[2-Rel]),cex=0.8)
+text(1.5,1.75,"Molar Area")
+text(1,0,expression(mu*(M[3])),cex=0.8)
+text(2,0,expression(mu*M[2-Rel]),cex=0.8)
+text(3,0,expression(sigma^2*(M[3-Rel])),cex=0.8)
+text(4,0,expression(sigma^2*(M[3])),cex=0.8)
+text(5,0,expression(sigma(M[1],M[3])),cex=0.8)
+text(6,0,expression(sigma(M[2],M[3])),cex=0.8)
 dev.off()
 #plot: length -----------
 #same but for lengths
@@ -264,35 +260,31 @@ p2<-Transform.Expectations(mouseL.estimated.table,mouseL.model.table)
 
 #make a Roseman & Delezene-style plot
 pdf("output/mouse_ICM_predictions_length.pdf")
-plot(1:7,NULL, type = "n", ylim = c(0,190),xlim = c(0.5,7.5),xlab = "",
-     ylab = "Observed/Expected X 100", xaxt="n")
+plot(1:6,NULL, type = "n", ylim = c(-0.10,1.90),xlim = c(0.5,6.5),xlab = "",
+     ylab = "Observed/Expected", xaxt="n")
 
-points(1:7,c(p2$M1.M3.cov.relative.delta[1],p2$M2.M3.cov.relative.delta[1], 
-             p2$mstd.M3.relative.delta.summary[1],p2$M3.var.relative.delta[1],
-             p2$M3.var.Young.relative.delta[1],p2$M3.means.relative.delta[1],
-             p2$M2.prop.relative.delta[1]),pch = 19, cex = 3)
+points(1:6,c(p2$M3.means.relative.delta[1],p2$M2.prop.relative.delta[1],
+             p2$M3.var.Young.relative.delta[1], p2$M3.var.relative.delta[1],
+             p2$M1.M3.cov.relative.delta[1],p2$M2.M3.cov.relative.delta[1]),pch = 19, cex = 3)
 
-segments(1:7,c(p2$M1.M3.cov.relative.delta[2],p2$M2.M3.cov.relative.delta[2], 
-               p2$mstd.M3.relative.delta.summary[2],p2$M3.var.relative.delta[2],
-               p2$M3.var.Young.relative.delta[2],p2$M3.means.relative.delta[2],
-               p2$M2.prop.relative.delta[2]),
-         1:7,c(p2$M1.M3.cov.relative.delta[3],p2$M2.M3.cov.relative.delta[3], 
-               p2$mstd.M3.relative.delta.summary[3],p2$M3.var.relative.delta[3],
-               p2$M3.var.Young.relative.delta[3],p2$M3.means.relative.delta[3],
-               p2$M2.prop.relative.delta[3]),lwd = 3)
+segments(1:6,c(p2$M3.means.relative.delta[2],p2$M2.prop.relative.delta[2],
+               p2$M3.var.Young.relative.delta[2],p2$M3.var.relative.delta[2], 
+               p2$M1.M3.cov.relative.delta[2],p2$M2.M3.cov.relative.delta[2]),
+         1:6,c(p2$M3.means.relative.delta[3],p2$M2.prop.relative.delta[3],
+               p2$M3.var.Young.relative.delta[3],p2$M3.var.relative.delta[3], 
+               p2$M1.M3.cov.relative.delta[3],p2$M2.M3.cov.relative.delta[3]),lwd = 3)
 
 #add expectations line
-segments(0.175,100,7.3,100,lty = 3, lwd= 3, col = "darkgrey")
+segments(0.175,1.00,7.3,1.00,lty = 3, lwd= 3, col = "darkgrey")
 
 #add labels
-text(2.5,175,"length")
-text(1,10,expression(sigma(M[1],M[3])),cex=0.8)
-text(2,10,expression(sigma(M[2],M[3])),cex=0.8)
-text(3,10,expression(frac(sigma^2*(M[3]),mu^2)),cex=0.8)
-text(4,10,expression(sigma^2*(M[3])),cex=0.8)
-text(5,10,expression(sigma^2*(M[3-Rel])),cex=0.8)
-text(6,10,expression(mu*(M[3])),cex=0.8)
-text(7,10,expression(mu*(M[2-Rel])),cex=0.8)
+text(1.5,1.75,"Molar Length")
+text(1,0,expression(mu*(M[3])),cex=0.8)
+text(2,0,expression(mu*M[2-Rel]),cex=0.8)
+text(3,0,expression(sigma^2*(M[3-Rel])),cex=0.8)
+text(4,0,expression(sigma^2*(M[3])),cex=0.8)
+text(5,0,expression(sigma(M[1],M[3])),cex=0.8)
+text(6,0,expression(sigma(M[2],M[3])),cex=0.8)
 dev.off()
 # write tables ---------
 tables.made<-list(mouseA.model.table=mouseA.model.table,

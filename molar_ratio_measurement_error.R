@@ -67,5 +67,6 @@ for (row in levels.row){
 #take the average repeatibility for each metric across the tooth row (avg of m1 thru m3)
 avg.repeat<-apply(percents,2,function(x) 1-mean(x))
 
+write.csv(avg.repeat,"output/measurement_repeatibility.csv")
 #clean workspace
 rm(list=c("ANOVA","in_df","in_df_long","col","levels.col","levels.row","r","row"))

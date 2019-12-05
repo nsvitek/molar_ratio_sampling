@@ -36,7 +36,7 @@ IA.dist.new <- function(V.m1, V.m2 ,mu.m1, mu.m2,C.m1.m2){
 #transforms results to a relative scale. 
 Transform.Expectations<-function(estimated.table,model.table){
   relative.delta <- cbind(posterior.mode(as.mcmc((estimated.table)/model.table)),
-                          HPDinterval(as.mcmc((estimated.table)/model.table)))*100
+                          HPDinterval(as.mcmc((estimated.table)/model.table)))
   #Mean standardized results broken into individual vectors
   M3.means.relative.delta <-relative.delta["mu.m3",]
   M3.var.relative.delta <- relative.delta["V.m3",]

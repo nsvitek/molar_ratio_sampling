@@ -12,11 +12,12 @@ library(readxl) #read raw data
 library(reshape2) #for reformatting & comparing CV, measurement error data
 library(lmodel2) #for RMA regression
 # library(moments) #for kurtosis
+library(MCMCglmm) #for Bayesian modelling
 
-locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
-# locateScripts<-"C:/scripts/scripts"
-locateData<-"C:/Users/N.S/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
-# locateData<-"D:/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
+# locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
+locateScripts<-"C:/scripts/molar_ratio_sampling"
+# locateData<-"C:/Users/N.S/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
+locateData<-"D:/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
 
 setwd(locateScripts)
 source("../scripts/function_bootstrap.R")
@@ -35,6 +36,9 @@ mouse.raw<-read_excel("input/peromyscus_gossypinus_icm.xlsx")
 compICM.raw<-read_excel("input/comparison_ICM_asahara.xlsx")
 #and also Roseman and Delezene's dataset for comparison
 compICM2.raw<-read_excel("input/comparison_ICM_roseman.xlsx", sheet = "Molar Size Data", na="NA")
+#and also Labonne et al's dataset for comparison
+compICM3.raw<-read_excel("input/comparison_ICM_labonne.xlsx")
+
 #comparative MMC data from Monson et al. 2019
 compMMC.raw<-read_excel("input/comparison_MMC_monson.xlsx")
 #read in the data of macrocranion
@@ -49,7 +53,7 @@ mouse<-dplyr::select(mouse.raw,-c(institution,catalog_number,genus,species,files
                            voxels,locality))
 
 mouse$Order<-"Rodentia"
-mouse$Species<-"Peromyscus"
+mouse$Species<-"Peromyscus gossypinus"
 #take means of raw measurement replicates
 mouse$m1.length<-apply(cbind(mouse$m1.l1,mouse$m1.l2,mouse$m1.l3),1,mean)
 mouse$m1.width<-apply(cbind(mouse$m1.w1,mouse$m1.w2,mouse$m1.w3),1,mean)
@@ -105,35 +109,60 @@ compICM2.raw$m2.m1A<-compICM2.raw$M2.Area/compICM2.raw$M1.Area
 compICM2<-compICM2.raw[!is.na(compICM2.raw$m3.m1A),]
 compICM2<-compICM2[!is.na(compICM2$m2.m1A),]
 compICM2$Order<-"Primates"
+compICM2$Reference<-"Roseman and Delezene 2019"
+
+#format Labonne data
+colnames(compICM3.raw)<-c("family","subfamily","Species","p4","M1.Area","M2.Area","M3.Area",
+                          "composite","m2.m1A","m3.m1A","fossilextant","ref")
+compICM3<-compICM3.raw %>% filter(.,composite=="no") %>% 
+  filter(.,grepl(" sp\\.",Species,perl=TRUE)==FALSE) %>% 
+  select(.,Species,M1.Area,M2.Area,M3.Area,m3.m1A,m2.m1A)
+compICM3.spp.counts<-compICM3 %>% group_by(Species) %>% summarize (N=n()) 
+exclude.me<-compICM3.spp.counts$Species[which(compICM3.spp.counts$N==1)]
+compICM3<-filter(compICM3,Species %in% exclude.me == FALSE)
+compICM3$Order<-"Rodentia"
+compICM3$Sex<-"unknown"
+compICM3$Reference<-"Labonne et al. 2012"
+
+compICM.pub<-rbind(compICM2,compICM3)
+#how many species remaining?
+compICM.pub %>% group_by(Species) %>% summarize (N=n()) %>% nrow
 
 #add in peromyscus gossypinus data
-compICM2add<-dplyr::select(mouse,Order,m2.m1A,m3.m1A)
+compICM2add<-dplyr::select(mouse,m2.m1A,m3.m1A)
 compICM2add$Species<-"Peromyscus gossypinus"
-compICM2add$Sex<-"both"
+compICM2add$Order<-"Rodentia"
+compICM2add$Sex<-"unknown"
 compICM2add$M1.Area<-mouse$m1.area
 compICM2add$M2.Area<-mouse$m2.area
 compICM2add$M3.Area<-mouse$m3.area
-compICM.indv<-rbind(compICM2,compICM2add)
+compICM2add$Reference<-"this study"
+compICM.indv<-rbind(compICM.pub,compICM2add)
 
 #summarize individual-level data so it can be collated with population-level data
 ICM.CV<- compICM.indv %>% group_by(Order, Species, Sex) %>%  
   summarize(N=n(), m3m1.mean=mean(m3.m1A), m3m1.SD=sd(m3.m1A),m3m1.CV=sd(m3.m1A)/mean(m3.m1A)*100,
-            m2m1.mean=mean(m2.m1A), m2m1.SD=sd(m2.m1A),m2m1.CV=sd(m2.m1A)/mean(m2.m1A)*100)
+            m2m1.mean=mean(m2.m1A), m2m1.SD=sd(m2.m1A),m2m1.CV=sd(m2.m1A)/mean(m2.m1A)*100,Reference=unique(Reference))
 colnames(ICM.CV)[which(colnames(ICM.CV)=="Sex")]<-"condition"
 
 #organize collated population-level ICM ratio data into standardized set of variables
 compICM.raw$N<-as.integer(compICM.raw$N)
 compICM.raw$m2m1.CV<-(compICM.raw$m2m1.SD/compICM.raw$m2m1.mean) *100
 compICM.raw$m3m1.CV<-(compICM.raw$m3m1.SD/compICM.raw$m3m1.mean) *100
-compICM.pop<-dplyr::select(compICM.raw,-citation) %>% bind_rows(.,ICM.CV)
+compICM.pop<-compICM.raw %>% bind_rows(.,ICM.CV)
 
-#confidence intervals?
-compICM.pop$m2m1.CI<-compICM.pop$m2m1.SD*1.96
-compICM.pop$m3m1.CI<-compICM.pop$m3m1.SD*1.96
+compICM.pop %>% group_by(Species) %>% summarize (N=n()) %>% nrow -1 #-1 to not double-count new Peromyscus measures
+write.csv(compICM.pop,"output/SI_TableX_AreasByPop.csv")
 # format MMC comparative data -----
-compMMC.raw %>% head
-#MMC: add Peromyscus gossypinus to comparative dataset
+#clean out singleton species
+MMC.spp.counts<-compMMC.raw %>% group_by(Species) %>% summarize (N=n()) 
+exclude.me<-MMC.spp.counts$Species[which(MMC.spp.counts$N==1)]
+compMMC.raw<-dplyr::filter(compMMC.raw,Species %in% exclude.me == FALSE)
+#how many species remaining?
+compMMC.raw %>% group_by(Species) %>% summarize (N=n()) %>% nrow
 
+#MMC: add Peromyscus gossypinus to comparative dataset
+compMMC.raw$Species %in% exclude.me
 mouse.MMC.2add<-dplyr::select(mouse,m3.m1L)
 mouse.MMC.2add$Order<-"Rodentia"
 mouse.MMC.2add$Family<-"Cricetidae"
@@ -149,6 +178,7 @@ mouse.MMC.2add$PMM<-mouse.MMC.2add$`Measured by`<-NA
 mouse.MMC.2add<-dplyr::select(mouse.MMC.2add,-m3.m1L)
 
 compMMC<-rbind(compMMC.raw,mouse.MMC.2add)
+write.csv(compMMC,"output/SI_TableX_LengthsIndv.csv")
 
 # format fossils -----
 fossil.raw$length<-apply(cbind(fossil.raw$length1,fossil.raw$length2,fossil.raw$length3),1,
@@ -163,7 +193,7 @@ source(paste(locateScripts,"molar_ratio_measurement_error.R",sep="/"))
 # ICM expectations: length or area? ----
 source(paste(locateScripts,"molar_ratio_ICM_expectations.R",sep="/"))
 
-# standing variation between populations -----
+# Peromyscus: variation between populations -----
 #gossypinus: compare the 4 state-level populations using U test and bootstrap.
 # #visualize intraspecific gossypinus data
 # # cairo_pdf("output/MMC_population_gossy.pdf")
@@ -184,21 +214,18 @@ source(paste(locateScripts,"molar_ratio_ICM_expectations.R",sep="/"))
 #   geom_point(data=mouse,aes(x=m2.m1A, y=m3.m1A,fill=state),size=4,pch=21) 
 
 #define testing variables
-measurement<-mouse$m3.m1L #which variable are you using to measure size
-measurement.ICM1<-mouse$m3.m1A
-measurement.ICM2<-mouse$m2.m1A
 group.var<-mouse$state  #which variable are you using as your group identity
 pop.sizes<-mouse %>% group_by(state) %>% summarize(n()) #calculate sample size for each group
 
 #pairwise U-test with Bonferroni correction approach following Asahara 2014
-U.MMC<-Pairwise.U(measurement,group.var)
-U.ICM1<-Pairwise.U(measurement.ICM1,group.var)
-U.ICM2<-Pairwise.U(measurement.ICM1,group.var)
+U.MMC<-Pairwise.U(mouse$m3.m1L,group.var)
+U.ICM31<-Pairwise.U(mouse$m3.m1A,group.var)
+U.ICM21<-Pairwise.U(mouse$m2.m1A,group.var)
 
-U.MMC$U.p.vals.ICM31<-U.ICM1$U.p.vals
-U.MMC$U.p.vals.ICM21<-U.ICM2$U.p.vals
-write.csv(U.MMC,"output/gossypinus_population_Utest.csv")
+cbind(U.MMC, U.ICM21[,5:8], U.ICM31[,5:8]) %>% 
+  write.csv(.,"output/gossypinus_population_Utest_M23.csv")
 
+#Alternate approach, but provides similar results. 
 #bootstrap ANOVA approach
 resam.distribution<-BootstrapANOVA(measurement,group.var,pop.sizes,replicates)
 bootstrap.p<-which(resam.distribution>=resam.distribution[1]) %>% length()/replicates
@@ -209,7 +236,7 @@ bootstrap.p.ICM1<-which(resam.distribution.ICM1>=resam.distribution.ICM1[1]) %>%
 resam.distribution.ICM2<-BootstrapANOVA(measurement.ICM2,group.var,pop.sizes,replicates)
 bootstrap.p.ICM2<-which(resam.distribution.ICM2>=resam.distribution.ICM2[1]) %>% length()/replicates
 cbind(bootstrap.p,bootstrap.p.ICM1,bootstrap.p.ICM2) %>% 
-  write.csv(.,"out/gossypinus_population_bootstrapANOVA.csv")
+  write.csv(.,"output/gossypinus_population_bootstrapANOVA.csv")
 
 # #visualize
 # hist(resam.distribution.ICM2) #no significant difference from random
@@ -228,6 +255,7 @@ ratio.pop.CV<- mouse %>% group_by(state) %>%
 MMC.CV<- compMMC %>% group_by(Order, Species) %>% 
   summarize(N=n(), MMC.mean=mean(MMC), MMC.SD=sd(MMC), MMC.CV=sd(MMC)/mean(MMC)*100)
 MMC.CV<-MMC.CV[complete.cases(MMC.CV),]
+write.csv(MMC.CV,"output/SI_TableX_LengthsByPop.csv")
 
 #summarize, report.
 MMC<-ungroup(MMC.CV) %>% summarize(mean=mean(MMC.CV),SD=sd(MMC.CV),median=median(MMC.CV))
@@ -242,6 +270,8 @@ CV.summary<-rbind(MMC,M2.M1, M3.M1,M2.M1.noRaccoonDog,M3.M1.noRaccoonDog) %>% as
 CV.summary$CI.upper<-CV.summary$mean+CV.summary$SD*1.96
 row.names(CV.summary)<-c("MMC","M2.M1", "M3.M1","M2.M1.noRaccoonDog","M3.M1.noRaccoonDog")
 write.csv(CV.summary,"output/CV_summary_stats.csv")
+
+
 # sensitivity of mean and sd of ratios to sample size -----------
 
 #creates resampled.stats

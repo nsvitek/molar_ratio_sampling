@@ -11,7 +11,6 @@ library(ggforce) #allows drawing circles and ellipses
 library(readxl) #read raw data
 library(reshape2) #for reformatting & comparing CV, measurement error data
 library(lmodel2) #for RMA regression
-# library(moments) #for kurtosis
 library(MCMCglmm) #for Bayesian modelling
 
 # locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
@@ -114,7 +113,7 @@ compICM2$Reference<-"Roseman and Delezene 2019"
 #format Labonne data
 colnames(compICM3.raw)<-c("family","subfamily","Species","p4","M1.Area","M2.Area","M3.Area",
                           "composite","m2.m1A","m3.m1A","fossilextant","ref")
-compICM3<-compICM3.raw %>% filter(.,composite=="no") %>% 
+compICM3<-compICM3.raw %>% filter(.,composite=="no",fossilextant=="E") %>% 
   filter(.,grepl(" sp\\.",Species,perl=TRUE)==FALSE) %>% 
   select(.,Species,M1.Area,M2.Area,M3.Area,m3.m1A,m2.m1A)
 compICM3.spp.counts<-compICM3 %>% group_by(Species) %>% summarize (N=n()) 
@@ -127,6 +126,7 @@ compICM3$Reference<-"Labonne et al. 2012"
 compICM.pub<-rbind(compICM2,compICM3)
 #how many species remaining?
 compICM.pub %>% group_by(Species) %>% summarize (N=n()) %>% nrow
+nrow(compICM.pub)
 
 #add in peromyscus gossypinus data
 compICM2add<-dplyr::select(mouse,m2.m1A,m3.m1A)
@@ -158,11 +158,12 @@ write.csv(compICM.pop,"output/SI_TableX_AreasByPop.csv")
 MMC.spp.counts<-compMMC.raw %>% group_by(Species) %>% summarize (N=n()) 
 exclude.me<-MMC.spp.counts$Species[which(MMC.spp.counts$N==1)]
 compMMC.raw<-dplyr::filter(compMMC.raw,Species %in% exclude.me == FALSE)
+#also calc m2:m1 ratio
+compMMC.raw$MMC2<-compMMC.raw$`DM2L (mm)`/compMMC.raw$`DM1L (mm)`
 #how many species remaining?
 compMMC.raw %>% group_by(Species) %>% summarize (N=n()) %>% nrow
 
 #MMC: add Peromyscus gossypinus to comparative dataset
-compMMC.raw$Species %in% exclude.me
 mouse.MMC.2add<-dplyr::select(mouse,m3.m1L)
 mouse.MMC.2add$Order<-"Rodentia"
 mouse.MMC.2add$Family<-"Cricetidae"
@@ -173,6 +174,7 @@ mouse.MMC.2add$`DM2L (mm)`<-mouse$m2.length
 mouse.MMC.2add$`DM1L (mm)`<-mouse$m1.length
 mouse.MMC.2add$`DP4L (mm)`<-NA
 mouse.MMC.2add$MMC<-mouse$m3.m1L
+mouse.MMC.2add$MMC2<-mouse$m2.m1L
 mouse.MMC.2add$PMM<-mouse.MMC.2add$`Measured by`<-NA
 
 mouse.MMC.2add<-dplyr::select(mouse.MMC.2add,-m3.m1L)
@@ -193,69 +195,19 @@ source(paste(locateScripts,"molar_ratio_measurement_error.R",sep="/"))
 # ICM expectations: length or area? ----
 source(paste(locateScripts,"molar_ratio_ICM_expectations.R",sep="/"))
 
-# Peromyscus: variation between populations -----
-#gossypinus: compare the 4 state-level populations using U test and bootstrap.
-# #visualize intraspecific gossypinus data
-# # cairo_pdf("output/MMC_population_gossy.pdf")
-# ggplot(mouse,aes(x=state, y=m3.m1L, fill=county))+
-#   geom_hline(yintercept=mean(mouse$m3.m1L),linetype="dashed",color="black",size=1.5)+
-#   geom_dotplot(binaxis="y")+
-#   theme_minimal()
-# # dev.off()
-# 
-# # cairo_pdf("output/ICM_population_gossy.pdf")
-# ggplot(mouse,aes(x=m2.m1A, y=m3.m1A, colour=state))+
-#   stat_chull(fill=NA)+
-#   geom_point(size=1.5)+
-#   theme_minimal()
-# # dev.off()
-# #plot to look at distribution. Structuring by site?
-# ggplot() + #theme(legend.position=c(.7,.1)) +
-#   geom_point(data=mouse,aes(x=m2.m1A, y=m3.m1A,fill=state),size=4,pch=21) 
-
-#define testing variables
-group.var<-mouse$state  #which variable are you using as your group identity
-pop.sizes<-mouse %>% group_by(state) %>% summarize(n()) #calculate sample size for each group
-
-#pairwise U-test with Bonferroni correction approach following Asahara 2014
-U.MMC<-Pairwise.U(mouse$m3.m1L,group.var)
-U.ICM31<-Pairwise.U(mouse$m3.m1A,group.var)
-U.ICM21<-Pairwise.U(mouse$m2.m1A,group.var)
-
-cbind(U.MMC, U.ICM21[,5:8], U.ICM31[,5:8]) %>% 
-  write.csv(.,"output/gossypinus_population_Utest_M23.csv")
-
-#Alternate approach, but provides similar results. 
-#bootstrap ANOVA approach
-resam.distribution<-BootstrapANOVA(measurement,group.var,pop.sizes,replicates)
-bootstrap.p<-which(resam.distribution>=resam.distribution[1]) %>% length()/replicates
-
-resam.distribution.ICM1<-BootstrapANOVA(measurement.ICM1,group.var,pop.sizes,replicates)
-bootstrap.p.ICM1<-which(resam.distribution.ICM1>=resam.distribution.ICM1[1]) %>% length()/replicates
-
-resam.distribution.ICM2<-BootstrapANOVA(measurement.ICM2,group.var,pop.sizes,replicates)
-bootstrap.p.ICM2<-which(resam.distribution.ICM2>=resam.distribution.ICM2[1]) %>% length()/replicates
-cbind(bootstrap.p,bootstrap.p.ICM1,bootstrap.p.ICM2) %>% 
-  write.csv(.,"output/gossypinus_population_bootstrapANOVA.csv")
-
-# #visualize
-# hist(resam.distribution.ICM2) #no significant difference from random
-# abline(v=resam.distribution.ICM2[1],col="red")
-# aov(lm(measurement.ICM1~group.var)) %>% summary
-
-#calculate mean and coefficient of variation by population
-ratio.pop.CV<- mouse %>% group_by(state) %>% 
-  summarize(N=n(),CV.MMC=sd(m3.m1L)/mean(m3.m1L)*100,mean.MMC=mean(m3.m1L),
-            CV.m3m1=sd(m3.m1A)/mean(m3.m1A)*100,mean.m3m1=mean(m3.m1A),
-            CV.m2m1=sd(m2.m1A)/mean(m2.m1A)*100,mean.m3m1=mean(m2.m1A))
-
-
-# standing variation in species -----
+## standing variation in species -----
 #MMC: calculate CV by species from Monson, gossypinus data
 MMC.CV<- compMMC %>% group_by(Order, Species) %>% 
-  summarize(N=n(), MMC.mean=mean(MMC), MMC.SD=sd(MMC), MMC.CV=sd(MMC)/mean(MMC)*100)
+  summarize(N=n(), MMC.mean=mean(MMC), MMC.SD=sd(MMC), MMC.CV=sd(MMC)/mean(MMC)*100,
+            MMC2.mean=mean(MMC2), MMC2.SD=sd(MMC2), MMC2.CV=sd(MMC2)/mean(MMC2)*100)
 MMC.CV<-MMC.CV[complete.cases(MMC.CV),]
 write.csv(MMC.CV,"output/SI_TableX_LengthsByPop.csv")
+
+#create object for plotting
+CV.survey<-bind_rows(select(compICM.pop,Order,N,m2m1.CV,m3m1.CV) %>% melt(id=c("Order","N")),
+                     select(MMC.CV,N,Order,MMC.CV,MMC2.CV) %>% melt(id=c("Order","N")))
+CV.survey$value<-as.numeric(CV.survey$value)
+CV.survey$N<-as.numeric(CV.survey$N)
 
 #summarize, report.
 MMC<-ungroup(MMC.CV) %>% summarize(mean=mean(MMC.CV),SD=sd(MMC.CV),median=median(MMC.CV))
@@ -272,13 +224,134 @@ row.names(CV.summary)<-c("MMC","M2.M1", "M3.M1","M2.M1.noRaccoonDog","M3.M1.noRa
 write.csv(CV.summary,"output/CV_summary_stats.csv")
 
 
-# sensitivity of mean and sd of ratios to sample size -----------
 
-#creates resampled.stats
-#Both: resample gossypinus dataset for all 3 ratios, check for sensitivity to sample size
+# geographic variation: u-tests -----
+#gossypinus: compare the 4 state-level populations using U test and bootstrap.
+#define testing variables
+group.var<-mouse$state  #which variable are you using as your group identity
+pop.sizes<-mouse %>% group_by(state) %>% summarize(n()) #calculate sample size for each group
+
+#pairwise U-test with Bonferroni correction approach following Asahara 2014
+U.MMC<-Pairwise.U(mouse$m3.m1L,group.var)
+U.ICM31<-Pairwise.U(mouse$m3.m1A,group.var)
+U.ICM21<-Pairwise.U(mouse$m2.m1A,group.var)
+
+cbind(U.MMC, U.ICM21[,5:8], U.ICM31[,5:8]) %>% 
+  write.csv(.,"output/gossypinus_population_Utest_M23.csv")
+
+#Alternate approach, but provides similar results.
+# #bootstrap ANOVA approach
+# resam.distribution<-BootstrapANOVA(mouse$m3.m1L,group.var,pop.sizes,replicates)
+# bootstrap.p<-which(resam.distribution>=resam.distribution[1]) %>% length()/replicates
+# 
+# resam.distribution.ICM1<-BootstrapANOVA(mouse$m3.m1A,group.var,pop.sizes,replicates)
+# bootstrap.p.ICM1<-which(resam.distribution.ICM1>=resam.distribution.ICM1[1]) %>% length()/replicates
+# 
+# resam.distribution.ICM2<-BootstrapANOVA(mouse$m2.m1A,group.var,pop.sizes,replicates)
+# bootstrap.p.ICM2<-which(resam.distribution.ICM2>=resam.distribution.ICM2[1]) %>% length()/replicates
+# cbind(bootstrap.p,bootstrap.p.ICM1,bootstrap.p.ICM2) %>% 
+#   write.csv(.,"output/gossypinus_population_bootstrapANOVA.csv")
+
+# #visualize
+# hist(resam.distribution.ICM2) #no significant difference from random
+# abline(v=resam.distribution.ICM2[1],col="red")
+# aov(lm(measurement.ICM1~group.var)) %>% summary
+
+# geographic variation: signs test ----------- 
+#make a table matching names to ratio
+ratio<-matrix(c("m3.m1L","MMC.mean","MMC.SD","MMC.V",
+                "m3.m1A","m3m1.mean","m3m1.SD","m3m1.V",
+                "m2.m1A","m2m1.mean","m2m1.SD","m2m1.V"),byrow = TRUE,ncol=4)
+
+#make table of summary stats for total mouse population, mouse.stats
+for(ratio.choice in 1:nrow(ratio)){
+  true.numbers<-mouse[,ratio[ratio.choice,1]] %>% unlist
+  mouse.standard<-data.frame(Mu=round(mean(true.numbers),3),Sigma=round(sd(true.numbers),3),
+                             CV=round(sd(true.numbers)/mean(true.numbers)*100,3))
+  if(ratio.choice==1){ mouse.stats<-mouse.standard }
+  if(ratio.choice>1){ mouse.stats<-rbind(mouse.stats,mouse.standard) }
+}
+row.names(mouse.stats)<-ratio[,1]
+
+#make a table of CVs by state
+ratio.pop.CV<- mouse %>% group_by(state) %>% 
+  summarize(N=n(),CV.MMC=sd(m3.m1L)/mean(m3.m1L)*100,mean.MMC=mean(m3.m1L),
+            CV.m3m1=sd(m3.m1A)/mean(m3.m1A)*100,mean.m3m1=mean(m3.m1A),
+            CV.m2m1=sd(m2.m1A)/mean(m2.m1A)*100,mean.m2m1=mean(m2.m1A)) 
+#add total
+ratio.pop.CV.2<-rbind(select(ratio.pop.CV,state,CV.MMC,CV.m3m1,CV.m2m1),
+                    c("Total",mouse.stats$CV[1],mouse.stats$CV[2],mouse.stats$CV[3])) %>%
+  melt(id="state")
+#take back out of character
+ratio.pop.CV.2$value<-as.numeric(ratio.pop.CV.2$value)
+
+#does pooling localities result in a higher CV?
+mice.high.CV<-(which(ratio.pop.CV$CV.m3m1 < mouse.stats$CV[which(ratio[,1]=="m3.m1A")]) %>% length) + 
+  (which(ratio.pop.CV$CV.m2m1 < mouse.stats$CV[which(ratio[,1]=="m2.m1A")]) %>% length) +
+  (which(ratio.pop.CV$CV.MMC < mouse.stats$CV[which(ratio[,1]=="m2.m1L")]) %>% length)
+#here, "successes" are where pooled CV is higher than locality cV
+binom.test(mice.high.CV,12,alternative = "greater") #no
+
+# #compare if CVs of population tend to be higher or lower
+# #check to see if size CV increases with pooled sample (which it could be based on plotted data)
+# mouse.total.size.CV<-c(sd(mouse$m3.area)/mean(mouse$m3.area)*100,
+#                        sd(mouse$m3.length)/mean(mouse$m3.length)*100)
+# mouse.pop.size.CV<-mouse %>% group_by(state) %>% 
+#   summarize(CV.area=sd(m3.area)/mean(m3.area)*100,CV.length=sd(m3.length)/mean(m3.length)*100)
+# which(mouse.pop.size.CV$CV.area < mouse.total.size.CV[1]) %>% length
+# which(mouse.pop.size.CV$CV.length < mouse.total.size.CV[2]) %>% length
+# binom.test(6,8,alternative = "greater")
+# sexual dimorphism  -------
+ICM.dimorph<-compICM.indv %>% filter(.,compICM.indv$Sex !="unknown")
+ICM.di.spp.CV<-ICM.dimorph %>% group_by(Species) %>% 
+  summarize(N=n(),
+  CV.m3m1=sd(m3.m1A)/mean(m3.m1A)*100,mean.m3m1=mean(m3.m1A),
+  CV.m2m1=sd(m2.m1A)/mean(m2.m1A)*100,mean.m2m1=mean(m2.m1A),
+  CV.m3.area=sd(M3.Area)/mean(M3.Area)*100,mean.m3.area=mean(M3.Area))
+
+ICM.di.sex.CV<-ICM.dimorph %>% group_by(Species,Sex) %>% 
+  summarize(N=n(),
+            CV.m3m1=sd(m3.m1A)/mean(m3.m1A)*100,mean.m3m1=mean(m3.m1A),
+            CV.m2m1=sd(m2.m1A)/mean(m2.m1A)*100,mean.m2m1=mean(m2.m1A),
+            CV.m3.area=sd(M3.Area)/mean(M3.Area)*100,mean.m3.area=mean(M3.Area))
+
+# sexual dimorphism: signs & U tests --------
+#does pooling sexes result in a higher CV?
+n.cv<-n.size<-m3m1.U<-m2m1.U<-m3.size.U<-NULL
+n.spp<-nrow(ICM.di.spp.CV) #number of primate spp with sexual dimorphism info
+for (i in 1:n.spp){
+  spp.choice<-ICM.di.sex.CV %>% filter(Species %in% ICM.di.spp.CV$Species[i])
+  n.cv<-c(n.cv,
+          (which(spp.choice$CV.m3m1 < ICM.di.spp.CV$CV.m3m1[i]) %>% length) + 
+    (which(spp.choice$CV.m2m1 < ICM.di.spp.CV$CV.m2m1[i]) %>% length))
+  n.size<-c(n.size, 
+           which(spp.choice$CV.m3.area < ICM.di.spp.CV$CV.m3.area[i]) %>% length)
+  #also a U-test?
+  sample.choice<-ICM.dimorph %>% filter(Species %in% ICM.di.spp.CV$Species[i])
+  m3.size.U<-rbind(m3.size.U,
+              Pairwise.U(sample.choice$M3.Area,sample.choice$Sex))
+  m3m1.U<-rbind(m3m1.U,
+    Pairwise.U(sample.choice$m3.m1A,sample.choice$Sex))
+  m2m1.U<-rbind(m2m1.U,
+    Pairwise.U(sample.choice$m2.m1A,sample.choice$Sex))
+}
+row.names(m3m1.U)<-row.names(m2m1.U)<-ICM.di.spp.CV$Species
+binom.test(sum(n.cv),n.spp*2*2,alternative = "greater") #no
+# binom.test(sum(n.size),n.spp*2*2,alternative = "greater")
+
+#make object for plotting
+ICM.di.spp.CV$Sex<-"Total"
+ratio.sex.CV<-bind_rows(ICM.di.sex.CV,ICM.di.spp.CV) %>% 
+  select(Species, Sex, CV.m3m1, CV.m2m1)
+ratio.sex.CV.2<-melt(ratio.sex.CV, id=c("Species","Sex"))
+
+## sensitivity of mean and sd of ratios to sample size -----------
 resampled.names<-c("N","MMC.CV","MMC.mean","MMC.SD",
                    "m3m1.CV","m3m1.mean","m3m1.SD","m2m1.CV","m2m1.mean","m2m1.SD",
                    "MMC.max","MMC.min","m3m1.max","m3m1.min","m2m1.max","m2m1.min")
+
+#Both: resample gossypinus dataset for all 3 ratios, check for sensitivity to sample size
+#creates resampled.stats
 resampled.base<-matrix(NA,nrow=replicates,ncol=length(resampled.names),
                        dimnames=list(c(NULL),resampled.names))
 for (sample.n in 2:nrow(mouse)){
@@ -307,27 +380,11 @@ for (sample.n in 2:nrow(mouse)){
   if(sample.n>=3){resampled.stats<-rbind(resampled.stats,resampled)}
 }
 
-#make a table matching names to ratio
-ratio<-matrix(c("m3.m1L","MMC.mean","MMC.SD","resampled.range.MMC","m3.m1L.SD","V.m3.m1L",
-                "m3.m1A","m3m1.mean","m3m1.SD","resampled.range.m3m1","m3.m1A.SD","V.m3.m1A",
-                "m2.m1A","m2m1.mean","m2m1.SD","resampled.range.m2m1","m2.m1A.SD","V.m2.m1A"),byrow = TRUE,ncol=6)
 
+#######COMPARE AGAINST HPD, NOT CONFIDENCE INTERVAL!!!!!!!
 #calculate summary stats for original mouse dataset to use as standar
 #do for all three ratios. Write to a table. 
 for(ratio.choice in 1:nrow(ratio)){
-  true.numbers<-mouse[,ratio[ratio.choice,1]] %>% unlist
-  mouse.standard<-data.frame(Mu=round(mean(true.numbers),3),Sigma=round(sd(true.numbers),3),
-                             CV=round(sd(true.numbers)/mean(true.numbers)*100,3),
-                             CI.U=round(mean(true.numbers)+sd(true.numbers)*1.96,3),
-                             CI.L=round(mean(true.numbers)-sd(true.numbers)*1.96,3),
-                             Range=round(max(true.numbers)-min(true.numbers),3),
-                             Kurtosis=round(kurtosis(true.numbers),3))
-  mouse.standard$CI.range<-mouse.standard$CI.U-mouse.standard$CI.L
-  #CI for mouse variance, assuming normality, from Sokal and Rohlf
-  mouse.standard$var.CI.L<-(((nrow(mouse)-1) * (mouse.standard$Sigma)^2) /
-              qchisq(c(0.975),df=nrow(mouse)-1)) %>% sqrt
-  mouse.standard$var.CI.U<-(((nrow(mouse)-1) * (mouse.standard$Sigma)^2) /
-              qchisq(c(0.025),df=nrow(mouse)-1)) %>% sqrt
   #create a vector of mean error
   vs.true<-data.frame(prop.mean.outside.95ci=rep(NA,nrow(mouse)-1),
                       prop.sd.above.95ci=rep(NA,nrow(mouse)-1),
@@ -337,15 +394,15 @@ for(ratio.choice in 1:nrow(ratio)){
                       N=rep(2:nrow(mouse)))
   for (i in 2:nrow(mouse)){
     resampled.means<-resampled.stats[which(resampled.stats$N==i),ratio[ratio.choice,2]] %>% unlist
-    vs.true$prop.mean.outside.95ci[i-1]<-which(abs(resampled.means-mouse.standard$Mu)>=(mouse.standard$Sigma*1.96)) %>% 
+    vs.true$prop.mean.outside.95ci[i-1]<-which(abs(resampled.means-mouse.stats$Mu[ratio.choice])>=(mouse.stats$Sigma[ratio.choice]*1.96)) %>% 
       length(.)/replicates
     #get range of means
     vs.true$upper.mean[i-1]<-max(resampled.means)
     vs.true$lower.mean[i-1]<-min(resampled.means)
     resampled.standarddevs<-resampled.stats[which(resampled.stats$N==i),ratio[ratio.choice,3]] %>% unlist
-    vs.true$prop.sd.above.95ci[i-1]<-which((resampled.standarddevs-mouse.standard$var.CI.U)>0) %>% 
+    vs.true$prop.sd.above.95ci[i-1]<-which((resampled.standarddevs-mouse.stats$var.CI.U[ratio.choice])>0) %>% 
       length(.)/replicates
-    vs.true$prop.sd.below.95ci[i-1]<-which((resampled.standarddevs-mouse.standard$var.CI.L)<0) %>% 
+    vs.true$prop.sd.below.95ci[i-1]<-which((resampled.standarddevs-mouse.stats$var.CI.L[ratio.choice])<0) %>% 
       length(.)/replicates
   }
   vs.true$ratio.name<-ratio[ratio.choice,1]
@@ -401,7 +458,7 @@ write.csv(sample.size.indicators.to.write,"output/sample_size_metrics.csv")
 sim.isolate.names<-c("N","m1.area","m2.area","m3.area","m1.length","m2.length","m3.length",
                      # "m1m2.area.C","m2m3.area.C","m1m3.area.C",
                      # "m1m2.length.C","m2m3.length.C","m1m3.length.C",
-                     "m2.m1A.SD","m3.m1A.SD","m3.m1L.SD",
+                     "m2m1A.SD","m3m1.SD","MMC.SD",
                      "m2.m1A","m3.m1A","m3.m1L")
 sim.isolate.base<-matrix(NA,nrow=replicates,ncol=length(sim.isolate.names),
                        dimnames=list(c(NULL),sim.isolate.names)) %>% as.data.frame #empty holder frame
@@ -422,12 +479,6 @@ for (sample.n in 1:50){
     sim.isolate$m1.length[i]<-m1L.sample %>% mean
     sim.isolate$m2.length[i]<-m2L.sample %>% mean
     sim.isolate$m3.length[i]<-m3L.sample %>% mean
-    # sim.isolate$m1m2.area.C[i]<-cov(m1A.sample,m2A.sample)
-    # sim.isolate$m2m3.area.C[i]<-cov(m2A.sample,m3A.sample)
-    # sim.isolate$m1m3.area.C[i]<-cov(m1A.sample,m3A.sample)
-    # sim.isolate$m1m2.length.C[i]<-cov(m1L.sample,m2L.sample)
-    # sim.isolate$m2m3.length.C[i]<-cov(m2L.sample,m3L.sample)
-    # sim.isolate$m1m3.length.C[i]<-cov(m1L.sample,m3L.sample)
     # print(paste("pseudopopulating rep", i))
     #make a pseudosample from the isolated molars by resampling 50% of specimen each time
     pseudopop.names<-c("m2m1A","m3m1A","m3m1L")
@@ -441,9 +492,9 @@ for (sample.n in 1:50){
       pseudopop$m3m1L[j]<-sample(m3L.sample,size=1)/
         sample(m1L.sample,size=1)
     }
-    sim.isolate$m2.m1A.SD[i]<-pseudopop$m2m1A %>% sd
-    sim.isolate$m3.m1A.SD[i]<-pseudopop$m3m1A %>% sd
-    sim.isolate$m3.m1L.SD[i]<-pseudopop$m3m1L %>% sd
+    sim.isolate$m2m1.SD[i]<-pseudopop$m2m1A %>% sd
+    sim.isolate$m3m1.SD[i]<-pseudopop$m3m1A %>% sd
+    sim.isolate$MMC.SD[i]<-pseudopop$m3m1L %>% sd
   }
   
   sim.isolate$m2.m1A<-sim.isolate$m2.area/sim.isolate$m1.area
@@ -473,10 +524,10 @@ for(ratio.choice in 1:nrow(ratio)){
     #Can you model a CI by resampling isolated teeth? Make the "pseudosample" of isolated teeth
     #and use it to model some kind of confidence interval, is that interval greater than, equal to, or
     #smaller than the true confidence interval?
-    sim.metric$too.much[i]<-which(simulation.subsample[,ratio[ratio.choice,5]] > 
-                                    SD.CI[ratio[ratio.choice,6],"upper"]) %>% length
-    sim.metric$too.little[i]<-which(simulation.subsample[,ratio[ratio.choice,5]] < 
-                                      SD.CI[ratio[ratio.choice,6],"lower"]) %>% 
+    sim.metric$too.much[i]<-which(simulation.subsample[,ratio[ratio.choice,3]] > 
+                                    SD.CI[ratio[ratio.choice,4],"upper"]) %>% length
+    sim.metric$too.little[i]<-which(simulation.subsample[,ratio[ratio.choice,3]] < 
+                                      SD.CI[ratio[ratio.choice,4],"lower"]) %>% 
       length
   }
   sim.metric$ratio.choice<-ratio[ratio.choice,1]

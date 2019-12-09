@@ -1,7 +1,53 @@
 ###REDO THESE!
+# CV in extant species -------
+#CV of ratios by locality, Peromyscus gossypinus
+####plot needs fixing up of axes, labels.
+cairo_pdf("output/CV_geo_subsample.pdf")
+ggplot(data=ratio.pop.CV.2, aes(x=variable,y=value)) +
+  geom_point(data=filter(ratio.pop.CV.2,state=="Total"),color="black",size=3) +
+  geom_point(data=filter(ratio.pop.CV.2,state!="Total"), aes(color=state),size=1.5) +
+  theme_minimal()
+dev.off()
 
+#sense of ratio variation, Peromyscus gossypinus
+####plot needs fixing up of axes, labels.
+# cairo_pdf("output/ICM_geo_gossy.pdf")
+ggplot(mouse,aes(x=m2.m1A, y=m3.m1A, colour=state))+
+  stat_chull(fill=NA)+
+  geom_point(size=1.5)+
+  theme_minimal()
+# dev.off()
+
+#CV of ratios by sex, Primates
+#####plots needs fixing up of axes, labels
+# cairo_pdf("output/CV_geo_subsample.pdf")
+ggplot(data=ratio.sex.CV.2, aes(x=Species,y=value)) +
+  facet_grid(rows = vars(variable),scales="free_y") +
+  geom_point(data=filter(ratio.sex.CV.2,Sex=="Total"),color="black",size=3) +
+  geom_point(data=filter(ratio.sex.CV.2,Sex!="Total"), aes(color=Sex),size=1.5) +
+  theme_minimal()
+# dev.off()
+
+#sense of how ratios vary by sex, Primates
+#####plots needs fixing up of axes, labels
+# cairo_pdf("output/ICM_sex_primates.pdf")
+ggplot(select(ICM.dimorph,Species,Sex,m3.m1A,m2.m1A) %>% melt(id=c("Species","Sex")),
+  aes(x=Species, y=value, fill=Sex))+
+  facet_grid(rows = vars(variable),scales="free_y") +
+    geom_boxplot()
+# dev.off()
 
 #show distribution of empirical CVs with regard to sample size. 3 part figure?
+#####plots needs fixing up of axes, labels
+# cairo_pdf("output/CV_Species.pdf")
+ggplot(data=CV.survey, aes(x=N,y=value,color=Order,shape=Order))+
+  facet_grid(rows = vars(variable),scales="free_y") +
+  geom_point()
+# dev.off()
+
+# OLD --------
+
+
 
 #for sample size recs for "true" populations, plot how many resamples are outside 95% CI of true mean & sd
 
@@ -34,26 +80,6 @@ ggplot(data=resampled.stats, aes_string(x="N",y="m2m1.SD"))+
   geom_hline(yintercept=var.CI[2],linetype="dashed",color="blue",size=1)+
   geom_point(data=resampled.stats[which(resampled.stats$m2m1.SD-var.CI[2]>0),],col="red")
 
-
-
-#plot MMC CV, how gossypinus relates to sample size and to estimates from samples of other spp
-cairo_pdf("output/MMC_species_CV.pdf")
-ggplot(data=resampled.stats, aes(x=N,y=MMC.CV))+
-  geom_point(alpha=0.25,color="gray") +
-  geom_smooth(color="black",method="loess") + #make smoother, prettier? or quantile?
-  geom_hline(yintercept=mean(MMC.CV$MMC.CV),linetype="dashed",color="black",size=1.5)+
-  geom_point(data=MMC.CV,aes(x=N,y=MMC.CV,color=Order),size=1.5) +
-  xlim(2,max(MMC.CV$N)) + theme_minimal()
-dev.off()
-
-#same but for MMC mean
-cairo_pdf("output/MMC_species_mean.pdf")
-ggplot(data=resampled.stats, aes(x=N,y=MMC.mean))+
-  geom_point(alpha=0.25,color="gray") +
-  geom_smooth(color="black",method="loess") + #make smoother, prettier?
-  geom_point(data=MMC.CV,aes(x=N,y=MMC.mean,color=Order),size=1.5) +
-  xlim(2,max(MMC.CV$N)) + theme_minimal()
-dev.off()
 
 #same but for MMC SD
 cairo_pdf("output/MMC_species_SD.pdf")

@@ -55,7 +55,7 @@ mouse.ratio.estimated.table <- data.frame(mouse.RMA.model.a.var$VCV[,"traitm3.m1
                                           mouse.RMA.model.a.var$VCV[,"traitm2.m1A:traitm2.m1A.units"]*avg.repeat["area"],
                                           mouse.RMA.model.l.var$VCV[,"traitm3.m1L:traitm3.m1L.units"]*avg.repeat["length"],
                                           mouse.RMA.model.l.var$VCV[,"traitm2.m1L:traitm2.m1L.units"]*avg.repeat["length"])
-names(mouse.ratio.estimated.table) <- 	c("V.m3.m1A","V.m2.m1A","V.m3.m1L","V.m2.m1L")
+names(mouse.ratio.estimated.table) <- 	c("m3m1.V","m2m1.V","MMC.V","m2m1L.V")
 
 
 #E2a: Roseman & Delezene's variance-covariance: Area -------------

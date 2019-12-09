@@ -75,9 +75,10 @@ Pairwise.U<-function(measurement,group.var){
     pairs.state$median2[i]<-measurement[which(group.var==pairs.state[i,2])] %>% median %>% round(.,3)
     temp.test<-wilcox.test(measurement[which(group.var==pairs.state[i,1])],
                            measurement[which(group.var==pairs.state[i,2])])
-    pairs.state$p.vals[i]<-temp.test$p.value %>% p.adjust(.,method="bonferroni",n=nrow(pairs.state)) %>% round(.,3)
+    pairs.state$p.vals[i]<-temp.test$p.value
     pairs.state$U.vals[i]<-temp.test$statistic
   }
+  pairs.state$p.vals<-pairs.state$p.vals %>% p.adjust(.,method="bonferroni") %>% round(.,3)
   return(pairs.state)
 }
 

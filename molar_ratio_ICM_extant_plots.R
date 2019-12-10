@@ -37,11 +37,12 @@ ggplot(select(ICM.dimorph,Species,Sex,m3.m1A,m2.m1A) %>% melt(id=c("Species","Se
     geom_boxplot()
 # dev.off()
 
-#show distribution of empirical CVs with regard to sample size. 3 part figure?
+#show distribution of empirical CVs
+#no longer a point in it being in regard to sample size. WHAT DO YOU WANT TO SHOW?
 #####plots needs fixing up of axes, labels
 # cairo_pdf("output/CV_Species.pdf")
-ggplot(data=CV.survey, aes(x=N,y=value,color=Order,shape=Order))+
-  facet_grid(rows = vars(variable),scales="free_y") +
+ggplot(data=CV.survey2, aes(x=M2,y=M3,color=Order,shape=Order))+
+  facet_grid(rows = vars(dimension),scales="free_y") +
   geom_point()
 # dev.off()
 

@@ -13,13 +13,13 @@ library(reshape2) #for reformatting & comparing CV, measurement error data
 library(lmodel2) #for RMA regression
 library(MCMCglmm) #for Bayesian modelling
 
-# locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
-locateScripts<-"C:/scripts/molar_ratio_sampling"
-# locateData<-"C:/Users/N.S/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
-locateData<-"D:/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
+locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
+# locateScripts<-"C:/scripts/molar_ratio_sampling"
+locateData<-"C:/Users/N.S/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
+# locateData<-"D:/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
 
 setwd(locateScripts)
-source("../scripts/function_bootstrap.R")
+# source("../scripts/function_bootstrap.R") #may not need this anymore. 
 #script-specific functions:
 source("molar_ratio_functions.R")
 
@@ -130,7 +130,7 @@ nrow(compICM.pub)
 
 #add in peromyscus gossypinus data
 compICM2add<-dplyr::select(mouse,m2.m1A,m3.m1A)
-compICM2add$Species<-"Peromyscus gossypinus"
+compICM2add$Species<-"Peromyscus gossypinus area"
 compICM2add$Order<-"Rodentia"
 compICM2add$Sex<-"unknown"
 compICM2add$M1.Area<-mouse$m1.area
@@ -167,7 +167,7 @@ compMMC.raw %>% group_by(Species) %>% summarize (N=n()) %>% nrow
 mouse.MMC.2add<-dplyr::select(mouse,m3.m1L)
 mouse.MMC.2add$Order<-"Rodentia"
 mouse.MMC.2add$Family<-"Cricetidae"
-mouse.MMC.2add$Species<-"Peromyscus gossypinus"
+mouse.MMC.2add$Species<-"Peromyscus gossypinus length"
 mouse.MMC.2add$`Museum ID`<-mouse.MMC.2add$`Museum Repository`<-NA
 mouse.MMC.2add$`DM3L (mm)`<-mouse$m3.length
 mouse.MMC.2add$`DM2L (mm)`<-mouse$m2.length
@@ -204,26 +204,35 @@ MMC.CV<-MMC.CV[complete.cases(MMC.CV),]
 write.csv(MMC.CV,"output/SI_TableX_LengthsByPop.csv")
 
 #create object for plotting
-CV.survey<-bind_rows(select(compICM.pop,Order,N,m2m1.CV,m3m1.CV) %>% melt(id=c("Order","N")),
-                     select(MMC.CV,N,Order,MMC.CV,MMC2.CV) %>% melt(id=c("Order","N")))
+MMC.CV$condition<-"unknown"
+CV.survey<-bind_rows(select(compICM.pop,Order,Species,condition,m2m1.CV,m3m1.CV) %>% melt(id=c("Order","Species","condition")),
+                     select(MMC.CV,Order,Species,condition,MMC.CV,MMC2.CV) %>% melt(id=c("Order","Species","condition")))
+#remember to reset to numeric
 CV.survey$value<-as.numeric(CV.survey$value)
-CV.survey$N<-as.numeric(CV.survey$N)
 
-#summarize, report.
-MMC<-ungroup(MMC.CV) %>% summarize(mean=mean(MMC.CV),SD=sd(MMC.CV),median=median(MMC.CV))
-M2.M1<-compICM.pop %>% summarize(mean=mean(m2m1.CV),SD=sd(m2m1.CV),median=median(m2m1.CV))
+#organize by which has a tooth and what kind of measurement
+CV.survey$tooth<-"M3"
+CV.survey$tooth[grepl("2",CV.survey$variable,perl=TRUE)]<-"M2"
+CV.survey$dimension<-"area"
+CV.survey$dimension[grepl("MMC",CV.survey$variable,perl=TRUE)]<-"length"
+
+CV.survey2<-CV.survey %>% select(-variable) %>% dcast(., Order + Species + condition + dimension ~ tooth)
+
+#summarize, report
+MMC<-ungroup(MMC.CV) %>% summarize(mean=mean(MMC.CV),SD=sd(MMC.CV),median=median(MMC.CV),min=min(MMC.CV),max=max(MMC.CV))
+MMC2<- ungroup(MMC.CV) %>% summarize(mean=mean(MMC2.CV),SD=sd(MMC2.CV),median=median(MMC2.CV),min=min(MMC2.CV),max=max(MMC2.CV))
+M2.M1<-compICM.pop %>% summarize(mean=mean(m2m1.CV),SD=sd(m2m1.CV),median=median(m2m1.CV),min=min(m2m1.CV),max=max(m2m1.CV))
 M2.M1.noRaccoonDog<-compICM.pop %>% dplyr::filter(.,Species!="Nyctereutes procyonoides") %>% 
-  summarize(mean=mean(m2m1.CV),SD=sd(m2m1.CV),median=median(m2m1.CV))
-M3.M1<-compICM.pop %>% summarize(mean=mean(m3m1.CV),SD=sd(m3m1.CV),median=median(m3m1.CV))
+  summarize(mean=mean(m2m1.CV),SD=sd(m2m1.CV),median=median(m2m1.CV),min=min(m2m1.CV),max=max(m2m1.CV))
+M3.M1<-compICM.pop %>% summarize(mean=mean(m3m1.CV),SD=sd(m3m1.CV),median=median(m3m1.CV),min=min(m3m1.CV),max=max(m3m1.CV))
 M3.M1.noRaccoonDog<-compICM.pop %>% dplyr::filter(.,Species!="Nyctereutes procyonoides") %>% 
-  summarize(mean=mean(m3m1.CV),SD=sd(m3m1.CV),median=median(m3m1.CV))
+  summarize(mean=mean(m3m1.CV),SD=sd(m3m1.CV),median=median(m3m1.CV),min=min(m3m1.CV),max=max(m3m1.CV))
 
-CV.summary<-rbind(MMC,M2.M1, M3.M1,M2.M1.noRaccoonDog,M3.M1.noRaccoonDog) %>% as.data.frame
-CV.summary$CI.upper<-CV.summary$mean+CV.summary$SD*1.96
-row.names(CV.summary)<-c("MMC","M2.M1", "M3.M1","M2.M1.noRaccoonDog","M3.M1.noRaccoonDog")
+CV.summary<-rbind(MMC,MMC2,M2.M1, M3.M1,M2.M1.noRaccoonDog,M3.M1.noRaccoonDog) %>% as.data.frame
+CV.summary$CI.upper<-CV.summary$mean+(CV.summary$SD*1.96)
+CV.summary$CI.lower<-CV.summary$mean-(CV.summary$SD*1.96)
+row.names(CV.summary)<-c("M3.M1L","M2.M1L","M2.M1A", "M3.M1A","M2.M1A.noRaccoonDog","M3.M1A.noRaccoonDog")
 write.csv(CV.summary,"output/CV_summary_stats.csv")
-
-
 
 # geographic variation: u-tests -----
 #gossypinus: compare the 4 state-level populations using U test and bootstrap.

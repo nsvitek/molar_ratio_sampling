@@ -51,12 +51,16 @@ mouse.RMA.model.l.var<-MCMCglmm(cbind(m3.m1L,m2.m1L)~ trait - 1 ,
                                 thin = 1000)
 
 #put together the corresponding numbers that you actually get from the "true population"
-mouse.ratio.estimated.table <- data.frame(mouse.RMA.model.a.var$VCV[,"traitm3.m1A:traitm3.m1A.units"]*avg.repeat["area"],
+mouse.ratio.estimated.table <- data.frame(mouse.RMA.model.a.var$Sol[,"traitm3.m1A"],
+                                          mouse.RMA.model.a.var$Sol[,"traitm2.m1A"],
+                                          mouse.RMA.model.l.var$Sol[,"traitm3.m1L"],
+                                          mouse.RMA.model.l.var$Sol[,"traitm2.m1L"],
+                                          mouse.RMA.model.a.var$VCV[,"traitm3.m1A:traitm3.m1A.units"]*avg.repeat["area"],
                                           mouse.RMA.model.a.var$VCV[,"traitm2.m1A:traitm2.m1A.units"]*avg.repeat["area"],
                                           mouse.RMA.model.l.var$VCV[,"traitm3.m1L:traitm3.m1L.units"]*avg.repeat["length"],
                                           mouse.RMA.model.l.var$VCV[,"traitm2.m1L:traitm2.m1L.units"]*avg.repeat["length"])
-names(mouse.ratio.estimated.table) <- 	c("m3m1.V","m2m1.V","MMC.V","m2m1L.V")
-
+names(mouse.ratio.estimated.table) <- 	c("m3m1.mean","m2m1.mean","MMC.mean","MMC2.mean",
+                                         "m3m1.V","m2m1.V","MMC.V","MMC2.V")
 
 #E2a: Roseman & Delezene's variance-covariance: Area -------------
 #Delezene's variance-covariance prediction and Bayesian modelling that produced their fig. 3

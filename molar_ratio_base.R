@@ -13,10 +13,10 @@ library(reshape2) #for reformatting & comparing CV, measurement error data
 library(lmodel2) #for RMA regression
 library(MCMCglmm) #for Bayesian modelling
 
-locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
-# locateScripts<-"C:/scripts/molar_ratio_sampling"
-locateData<-"C:/Users/N.S/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
-# locateData<-"D:/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
+# locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
+locateScripts<-"C:/scripts/molar_ratio_sampling"
+# locateData<-"C:/Users/N.S/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
+locateData<-"D:/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
 
 setwd(locateScripts)
 # source("../scripts/function_bootstrap.R") #may not need this anymore. 
@@ -24,7 +24,7 @@ setwd(locateScripts)
 source("molar_ratio_functions.R")
 
 # settings ------
-replicates<-999 #bootstrap number, low for now, increase for final calcs
+replicates<-9999 #bootstrap number, low for now, increase for final calcs
 # n<-10 #resample number
 
 # load data -----------
@@ -195,7 +195,7 @@ source(paste(locateScripts,"molar_ratio_measurement_error.R",sep="/"))
 # ICM expectations: length or area? ----
 source(paste(locateScripts,"molar_ratio_ICM_expectations.R",sep="/"))
 
-## standing variation in species -----
+# standing variation in species -----
 #MMC: calculate CV by species from Monson, gossypinus data
 MMC.CV<- compMMC %>% group_by(Order, Species) %>% 
   summarize(N=n(), MMC.mean=mean(MMC), MMC.SD=sd(MMC), MMC.CV=sd(MMC)/mean(MMC)*100,
@@ -266,22 +266,23 @@ cbind(U.MMC, U.ICM21[,5:8], U.ICM31[,5:8]) %>%
 # abline(v=resam.distribution.ICM2[1],col="red")
 # aov(lm(measurement.ICM1~group.var)) %>% summary
 
-# geographic variation: signs test ----------- 
+# master table of mouse stats ------
 #make a table matching names to ratio
 ratio<-matrix(c("m3.m1L","MMC.mean","MMC.SD","MMC.V",
+                "m2.m1L","MMC2.mean","MMC2.SD","MMC2.V",
                 "m3.m1A","m3m1.mean","m3m1.SD","m3m1.V",
                 "m2.m1A","m2m1.mean","m2m1.SD","m2m1.V"),byrow = TRUE,ncol=4)
 
 #make table of summary stats for total mouse population, mouse.stats
-for(ratio.choice in 1:nrow(ratio)){
-  true.numbers<-mouse[,ratio[ratio.choice,1]] %>% unlist
-  mouse.standard<-data.frame(Mu=round(mean(true.numbers),3),Sigma=round(sd(true.numbers),3),
-                             CV=round(sd(true.numbers)/mean(true.numbers)*100,3))
-  if(ratio.choice==1){ mouse.stats<-mouse.standard }
-  if(ratio.choice>1){ mouse.stats<-rbind(mouse.stats,mouse.standard) }
-}
+mouse.mode<-posterior.mode(as.mcmc(mouse.ratio.estimated.table))
+
+mouse.stats<-data.frame(Mu=rep(NA,nrow(ratio)),row.names=ratio[,1])
+mouse.stats$Mu<-ratio[,2] %>% mouse.mode[.]
+mouse.stats$Sigma<-ratio[,4] %>% mouse.mode[.] %>% sqrt
+mouse.stats$CV<-mouse.stats$Sigma / mouse.stats$Mu * 100
 row.names(mouse.stats)<-ratio[,1]
 
+# geographic variation: signs test ----------- 
 #make a table of CVs by state
 ratio.pop.CV<- mouse %>% group_by(state) %>% 
   summarize(N=n(),CV.MMC=sd(m3.m1L)/mean(m3.m1L)*100,mean.MMC=mean(m3.m1L),
@@ -301,7 +302,6 @@ mice.high.CV<-(which(ratio.pop.CV$CV.m3m1 < mouse.stats$CV[which(ratio[,1]=="m3.
 #here, "successes" are where pooled CV is higher than locality cV
 binom.test(mice.high.CV,12,alternative = "greater") #no
 
-# #compare if CVs of population tend to be higher or lower
 # #check to see if size CV increases with pooled sample (which it could be based on plotted data)
 # mouse.total.size.CV<-c(sd(mouse$m3.area)/mean(mouse$m3.area)*100,
 #                        sd(mouse$m3.length)/mean(mouse$m3.length)*100)
@@ -355,118 +355,13 @@ ratio.sex.CV<-bind_rows(ICM.di.sex.CV,ICM.di.spp.CV) %>%
 ratio.sex.CV.2<-melt(ratio.sex.CV, id=c("Species","Sex"))
 
 ## sensitivity of mean and sd of ratios to sample size -----------
-resampled.names<-c("N","MMC.CV","MMC.mean","MMC.SD",
-                   "m3m1.CV","m3m1.mean","m3m1.SD","m2m1.CV","m2m1.mean","m2m1.SD",
-                   "MMC.max","MMC.min","m3m1.max","m3m1.min","m2m1.max","m2m1.min")
-
-#Both: resample gossypinus dataset for all 3 ratios, check for sensitivity to sample size
-#creates resampled.stats
-resampled.base<-matrix(NA,nrow=replicates,ncol=length(resampled.names),
-                       dimnames=list(c(NULL),resampled.names))
-for (sample.n in 2:nrow(mouse)){
-  resampled<-resampled.base
-  resampled[,"N"]<-sample.n #sample size
-  for(i in 1:replicates){
-    mouse.resampled<-dplyr::sample_n(mouse,size=sample.n,replace=FALSE)
-    resampled[i,"MMC.CV"]<-sd(mouse.resampled$m3.m1L)/mean(mouse.resampled$m3.m1L)*100
-    resampled[i,"MMC.mean"]<-mean(mouse.resampled$m3.m1L)
-    resampled[i,"MMC.SD"]<-sd(mouse.resampled$m3.m1L)
-    resampled[i,"m3m1.CV"]<-sd(mouse.resampled$m3.m1A)/mean(mouse.resampled$m3.m1A)*100
-    resampled[i,"m2m1.CV"]<-sd(mouse.resampled$m2.m1A)/mean(mouse.resampled$m2.m1A)*100
-    resampled[i,"m3m1.mean"]<-mean(mouse.resampled$m3.m1A)
-    resampled[i,"m2m1.mean"]<-mean(mouse.resampled$m2.m1A)
-    resampled[i,"m3m1.SD"]<-sd(mouse.resampled$m3.m1A)
-    resampled[i,"m2m1.SD"]<-sd(mouse.resampled$m2.m1A)
-    resampled[i,"m3m1.max"]<-max(mouse.resampled$m3.m1A)
-    resampled[i,"m2m1.max"]<-max(mouse.resampled$m2.m1A)
-    resampled[i,"m3m1.min"]<-min(mouse.resampled$m3.m1A)
-    resampled[i,"m2m1.min"]<-min(mouse.resampled$m2.m1A)
-    resampled[i,"MMC.max"]<-max(mouse.resampled$m3.m1L)
-    resampled[i,"MMC.min"]<-min(mouse.resampled$m3.m1L)
-    
-  }
-  if(sample.n==2){resampled.stats<-as.data.frame(resampled)}
-  if(sample.n>=3){resampled.stats<-rbind(resampled.stats,resampled)}
-}
-
-
-#######COMPARE AGAINST HPD, NOT CONFIDENCE INTERVAL!!!!!!!
-#calculate summary stats for original mouse dataset to use as standar
-#do for all three ratios. Write to a table. 
-for(ratio.choice in 1:nrow(ratio)){
-  #create a vector of mean error
-  vs.true<-data.frame(prop.mean.outside.95ci=rep(NA,nrow(mouse)-1),
-                      prop.sd.above.95ci=rep(NA,nrow(mouse)-1),
-                      prop.sd.below.95ci=rep(NA,nrow(mouse)-1),
-                      upper.mean=rep(NA,nrow(mouse)-1),
-                      lower.mean=rep(NA,nrow(mouse)-1),
-                      N=rep(2:nrow(mouse)))
-  for (i in 2:nrow(mouse)){
-    resampled.means<-resampled.stats[which(resampled.stats$N==i),ratio[ratio.choice,2]] %>% unlist
-    vs.true$prop.mean.outside.95ci[i-1]<-which(abs(resampled.means-mouse.stats$Mu[ratio.choice])>=(mouse.stats$Sigma[ratio.choice]*1.96)) %>% 
-      length(.)/replicates
-    #get range of means
-    vs.true$upper.mean[i-1]<-max(resampled.means)
-    vs.true$lower.mean[i-1]<-min(resampled.means)
-    resampled.standarddevs<-resampled.stats[which(resampled.stats$N==i),ratio[ratio.choice,3]] %>% unlist
-    vs.true$prop.sd.above.95ci[i-1]<-which((resampled.standarddevs-mouse.stats$var.CI.U[ratio.choice])>0) %>% 
-      length(.)/replicates
-    vs.true$prop.sd.below.95ci[i-1]<-which((resampled.standarddevs-mouse.stats$var.CI.L[ratio.choice])<0) %>% 
-      length(.)/replicates
-  }
-  vs.true$ratio.name<-ratio[ratio.choice,1]
-  if(ratio.choice==1){    
-    mouse.stats<-mouse.standard
-    sample.size.indicators<-vs.true
-    }
-  if(ratio.choice>1){
-    mouse.stats<-rbind(mouse.stats,mouse.standard)
-    sample.size.indicators<-rbind(sample.size.indicators,vs.true)
-    }
-}
-#melt to to plot
-ssi.long<-sample.size.indicators %>% dplyr::select(.,-upper.mean, -lower.mean) %>% 
-  melt(,id=c("N","ratio.name"))
-
-#recast to write to a table
-sample.size.indicators.to.write<-melt(sample.size.indicators,id=c("N","ratio.name")) %>% 
-  dcast(.,N ~ ratio.name + variable)
-write.csv(sample.size.indicators.to.write,"output/sample_size_metrics.csv")
-# #plot
-# source(paste(locateScripts,"molar_ratio_extant_plots.R"))
-
-# # test for phylogenetic signal in CV --------------
-# library(phytools)
-# library(treeman)
-# 
-# data(mammals)
-# str(mammals)
-# MMC.CV$Species
-# MMC.CV$MatchSpp<-gsub("([A-Za-z]*) ([A-Za-z]*)","\\1_\\2",MMC.CV$Species,perl=TRUE)
-# 
-# #prune the tree
-# mammalsMMC<-rmTips(mammals, tids = mammals@tips[-which(mammals@tips %in% MMC.CV$MatchSpp)]) %>%
-#   as(.,"phylo")
-# plot(mammalsMMC) #chec: a reasonable tree?
-# rm(rm="mammals") #is an 8mb dataset, remove when finished with it
-# #create variable for testing phylogenetic signal
-# phylo.MMC<-MMC.CV$MMC.CV[which(MMC.CV$MatchSpp %in% mammalsMMC$tip.label)]
-# names(phylo.MMC)<-MMC.CV$MatchSpp[which(MMC.CV$MatchSpp %in% mammalsMMC$tip.label)]
-# #test
-# CV.K<-phylosig(mammalsMMC, phylo.MMC, method="K", test=TRUE, nsim=1000)
-# CV.L<-phylosig(mammalsMMC, phylo.MMC, method="lambda", test=TRUE, nsim=1000)
-# 
-# #likelihood ratio test
-# fitBrownian<-brownie.lite(paintSubTree(mammalsMMC,mammalsMMC$edge[1,1],state="1"),phylo.MMC)
-# lam1<-phylosig(mammalsMMC,x1,method="lambda")
-# LR<-2*(CV.L$logL-fitBrownian$logL1)
-# pchisq(LR,df=1,lower.tail=FALSE) #significantly different from "phylogenetic signal", or pure Brownian motion
+source(paste(locateScripts,"molar_ratio_sample_size.R"))
+# test for phylogenetic signal in CV --------------
+# source(paste(locateScripts,"molar_ratio_physig.R",sep="/"))
 # create simulated composite molar rows --------
 #create resampled pseudoreplicates of molars sizes and ratios from composite cheek teeth
 #both, simulate all ratios at once:
 sim.isolate.names<-c("N","m1.area","m2.area","m3.area","m1.length","m2.length","m3.length",
-                     # "m1m2.area.C","m2m3.area.C","m1m3.area.C",
-                     # "m1m2.length.C","m2m3.length.C","m1m3.length.C",
                      "m2m1A.SD","m3m1.SD","MMC.SD",
                      "m2.m1A","m3.m1A","m3.m1L")
 sim.isolate.base<-matrix(NA,nrow=replicates,ncol=length(sim.isolate.names),
@@ -641,4 +536,6 @@ ggplot()+
 #cumulative change (words of H&G) or directional change resulting from a developmental cascade (PDP)
 
 ## #Tables ------
-#show distribution of CV, SD, Mena, Range for sample sizes for each metric?
+#show distribution of CV, SD, Mean, Range for sample sizes for each metric?
+## #plots --------
+# source(paste(locateScripts,"molar_ratio_extant_plots.R"))

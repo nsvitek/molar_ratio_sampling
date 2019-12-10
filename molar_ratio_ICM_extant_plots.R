@@ -11,40 +11,40 @@ dev.off()
 
 #sense of ratio variation, Peromyscus gossypinus
 ####plot needs fixing up of axes, labels.
-# cairo_pdf("output/ICM_geo_gossy.pdf")
+cairo_pdf("output/ICM_geo_gossy.pdf")
 ggplot(mouse,aes(x=m2.m1A, y=m3.m1A, colour=state))+
   stat_chull(fill=NA)+
   geom_point(size=1.5)+
   theme_minimal()
-# dev.off()
+dev.off()
 
 #CV of ratios by sex, Primates
 #####plots needs fixing up of axes, labels
-# cairo_pdf("output/CV_geo_subsample.pdf")
+cairo_pdf("output/CV_geo_subsample.pdf")
 ggplot(data=ratio.sex.CV.2, aes(x=Species,y=value)) +
   facet_grid(rows = vars(variable),scales="free_y") +
   geom_point(data=filter(ratio.sex.CV.2,Sex=="Total"),color="black",size=3) +
   geom_point(data=filter(ratio.sex.CV.2,Sex!="Total"), aes(color=Sex),size=1.5) +
   theme_minimal()
-# dev.off()
+dev.off()
 
 #sense of how ratios vary by sex, Primates
 #####plots needs fixing up of axes, labels
-# cairo_pdf("output/ICM_sex_primates.pdf")
+cairo_pdf("output/ICM_sex_primates.pdf")
 ggplot(select(ICM.dimorph,Species,Sex,m3.m1A,m2.m1A) %>% melt(id=c("Species","Sex")),
   aes(x=Species, y=value, fill=Sex))+
   facet_grid(rows = vars(variable),scales="free_y") +
     geom_boxplot()
-# dev.off()
+dev.off()
 
 #show distribution of empirical CVs
 #no longer a point in it being in regard to sample size. WHAT DO YOU WANT TO SHOW?
 #####plots needs fixing up of axes, labels
-# cairo_pdf("output/CV_Species.pdf")
+cairo_pdf("output/CV_Species.pdf")
 ggplot(data=CV.survey2, aes(x=M2,y=M3,color=Order,shape=Order))+
   facet_grid(rows = vars(dimension),scales="free_y") +
   geom_point()
-# dev.off()
+dev.off()
 
 # OLD --------
 

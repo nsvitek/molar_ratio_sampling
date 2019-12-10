@@ -41,10 +41,10 @@ in_df_long$orientation<-gsub("m[1-3]\\.a[1-3]","area",in_df_long$orientation)
 in_df_long$replicate<-gsub("m[1-3]\\.[lwa]([1-3])","\\1",in_df_long$variable)
 
 # calculate repeatibility ----
-#The Rosemand & Delezene method for evaluating "within-species repeatibility" (p.233)
+#The Roseman & Delezene method for evaluating "within-species repeatibility" (p.233)
 #is identical to Yezerinac's equation for percent measurement error, contained in function.
 
-#r is number of repeated measurements per variale. Here, each measurement taken 3 times.
+#r is number of repeated measurements per variable. Here, each measurement taken 3 times.
 r<-3                                  
 
 #make empty matrix to hold percents, rows are tooth positions, columns 

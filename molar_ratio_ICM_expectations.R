@@ -21,7 +21,7 @@ mouse.RMA.A.prior <- list(R = list(V = mouse.RMA.A.P,n=nrow(mouse.RMA.A.P)))
 
 mouse.RMA.L.P<- cov(mouse[,c("m3.m1L","m2.m1L")],
                     use = "pairwise.complete.obs") %>% diag %>% diag
-mouse.RMA.L.prior <- list(R = list(V = mouse.RMA.A.P,n=nrow(mouse.RMA.A.P)))
+mouse.RMA.L.prior <- list(R = list(V = mouse.RMA.L.P,n=nrow(mouse.RMA.L.P)))
 
 
 mouse.RMA.model.a.var<-MCMCglmm(cbind(m3.m1A,m2.m1A)~ trait - 1 ,

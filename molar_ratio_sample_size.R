@@ -93,14 +93,14 @@ resample.melted$HPD.lower<-apply(resample.melted,1, function(x) HPD[x[2],1])
 resample.melted$outside<-(resample.melted$HPD.lower > resample.melted$value) |
                             (resample.melted$HPD.upper < resample.melted$value)
  
-cairo_pdf(paste("output/",species.name,"_resample.pdf",sep=""))
-ggplot(data=resample.melted, aes(x=N,y=value))+
+sample.size.plot<-ggplot(data=resample.melted, aes(x=N,y=value))+
   facet_grid(facets = statistic + tooth ~ dimension, scales="free_y", switch="y") +
   geom_point(alpha=0.25,aes(color=outside)) +
   geom_smooth(color="black",method="auto") + #make smoother, prettier?
   scale_color_manual(values=c("gray","red")) +
+  ggtitle(species.name) + 
   theme_minimal() + theme(legend.position="none",axis.title.y=element_blank(),strip.placement = "outside")
-dev.off()
+ggsave(sample.size.plot, filename = paste("output/",species.name,"_resample.pdf",sep=""), dpi = 300)
 
 #melt sample size evaluation, this may not get used
 ssi.long<-sample.size.indicators %>% select(N,ratio.name,outside.mean,outside.var) %>%

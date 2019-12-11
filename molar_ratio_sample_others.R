@@ -52,6 +52,13 @@ resampled.names<-c("N","m3m1.mean","m3m1.SD",#"m3m1.max","m3m1.min",
                    "m2m1.mean","m2m1.SD")#,"m2m1.max","m2m1.min")
 
 #get sample size
+compICM2.raw<-read_excel("input/comparison_ICM_roseman.xlsx", sheet = "Molar Size Data", na="NA")
+#get ratios, other info for Roseman & Delezene data
+compICM2.raw$m3.m1A<-compICM2.raw$M3.Area/compICM2.raw$M1.Area
+compICM2.raw$m2.m1A<-compICM2.raw$M2.Area/compICM2.raw$M1.Area
+compICM2<-compICM2.raw[!is.na(compICM2.raw$m3.m1A),]
+compICM.pub<-compICM2[!is.na(compICM2$m2.m1A),]
+
 ICM.spp.counts<-compICM.pub %>% group_by(Species, Sex) %>% summarize (N=n()) 
 ICM.spp.counts<-ICM.spp.counts %>% filter(N>=43) #43 = minimum sample size that was adequate for all 4 metrics
 

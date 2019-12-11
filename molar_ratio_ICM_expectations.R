@@ -11,21 +11,6 @@
 mouse.RMA.model.a<-lmodel2(m3.m1A ~ m2.m1A + 1, data=mouse,nperm=replicates)
 mouse.RMA.model.l<-lmodel2(m3.m1L ~ m2.m1L + 1, data=mouse,nperm=replicates)
 
-pdf("output/mouse_ICM_RMA_area.pdf") 
-plot(mouse.RMA.model.a,"SMA")
-abline(a=mouse.RMA.model.a$regression.results$Intercept[3], 
-       b=mouse.RMA.model.a$regression.results$Slope[3], col="red",lwd=2) #highlight RMA
-abline(a=-1, b=2,col="black") #ICM slope
-dev.off()
-
-pdf("output/mouse_ICM_RMA_length.pdf")
-plot(mouse.RMA.model.l,"SMA")
-abline(a=mouse.RMA.model.l$regression.results$Intercept[3], 
-       b=mouse.RMA.model.l$regression.results$Slope[3], col="red",lwd=2) #highlight RMA
-abline(a=-1, b=2,col="black") #ICM slope
-dev.off()
-
-
 #2) Can you model m3 = 2*m2-m1 and get accurate m3 sizes? 
 #Do this in E2 as part of larger Bayesian model
 
@@ -55,12 +40,12 @@ mouse.ratio.estimated.table <- data.frame(mouse.RMA.model.a.var$Sol[,"traitm3.m1
                                           mouse.RMA.model.a.var$Sol[,"traitm2.m1A"],
                                           mouse.RMA.model.l.var$Sol[,"traitm3.m1L"],
                                           mouse.RMA.model.l.var$Sol[,"traitm2.m1L"],
-                                          mouse.RMA.model.a.var$VCV[,"traitm3.m1A:traitm3.m1A.units"]*avg.repeat["area"],
-                                          mouse.RMA.model.a.var$VCV[,"traitm2.m1A:traitm2.m1A.units"]*avg.repeat["area"],
-                                          mouse.RMA.model.l.var$VCV[,"traitm3.m1L:traitm3.m1L.units"]*avg.repeat["length"],
-                                          mouse.RMA.model.l.var$VCV[,"traitm2.m1L:traitm2.m1L.units"]*avg.repeat["length"])
+                                          sqrt(mouse.RMA.model.a.var$VCV[,"traitm3.m1A:traitm3.m1A.units"]*avg.repeat["area"]),
+                                          sqrt(mouse.RMA.model.a.var$VCV[,"traitm2.m1A:traitm2.m1A.units"]*avg.repeat["area"]),
+                                          sqrt(mouse.RMA.model.l.var$VCV[,"traitm3.m1L:traitm3.m1L.units"]*avg.repeat["length"]),
+                                          sqrt(mouse.RMA.model.l.var$VCV[,"traitm2.m1L:traitm2.m1L.units"]*avg.repeat["length"]))
 names(mouse.ratio.estimated.table) <- 	c("m3m1.mean","m2m1.mean","MMC.mean","MMC2.mean",
-                                         "m3m1.V","m2m1.V","MMC.V","MMC2.V")
+                                         "m3m1.SD","m2m1.SD","MMC.SD","MMC2.SD")
 
 #E2a: Roseman & Delezene's variance-covariance: Area -------------
 #Delezene's variance-covariance prediction and Bayesian modelling that produced their fig. 3
@@ -222,7 +207,7 @@ mouseL.model.table$V.m3.prop<-(proportionL.model.test$VCV[,"traitprop.m1L:traitp
 mouseL.estimated.table$V.m3.prop<-(proportionL.model.test$VCV[,"traitprop.m3L:traitprop.m3L.units"]*
                                      avg.repeat["area"]) %>% as.numeric
 
-#Put calculations on standard scales for plot:area  -------
+#plot: area  -------
 # #look at summary statistics. Is zero part of the probability density interval (= model and data match)?
 # HPDinterval(as.mcmc(mouseA.model.table-mouseA.estimated.table)) %>% round(.,5)
 

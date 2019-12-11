@@ -46,6 +46,22 @@ ggplot(data=CV.survey2, aes(x=M2,y=M3,color=Order,shape=Order))+
   geom_point()
 dev.off()
 
+
+# ICM expectations ------
+pdf("output/mouse_ICM_RMA_area.pdf") 
+plot(mouse.RMA.model.a,"SMA")
+abline(a=mouse.RMA.model.a$regression.results$Intercept[3], 
+       b=mouse.RMA.model.a$regression.results$Slope[3], col="red",lwd=2) #highlight RMA
+abline(a=-1, b=2,col="black") #ICM slope
+dev.off()
+
+pdf("output/mouse_ICM_RMA_length.pdf")
+plot(mouse.RMA.model.l,"SMA")
+abline(a=mouse.RMA.model.l$regression.results$Intercept[3], 
+       b=mouse.RMA.model.l$regression.results$Slope[3], col="red",lwd=2) #highlight RMA
+abline(a=-1, b=2,col="black") #ICM slope
+dev.off()
+
 # OLD --------
 
 

@@ -12,6 +12,7 @@ library(readxl) #read raw data
 library(reshape2) #for reformatting & comparing CV, measurement error data
 library(lmodel2) #for RMA regression
 library(MCMCglmm) #for Bayesian modelling
+library(stringr) #using str_detect for sample size resampling in non-mice
 
 # locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
 locateScripts<-"C:/scripts/molar_ratio_sampling"
@@ -24,7 +25,7 @@ setwd(locateScripts)
 source("molar_ratio_functions.R")
 
 # settings ------
-replicates<-9999 #bootstrap number, low for now, increase for final calcs
+replicates<-999 #bootstrap number, low for now, increase for final calcs
 # n<-10 #resample number
 
 # load data -----------
@@ -49,7 +50,7 @@ fossil.raw<-read_excel("input/measurements_macrocranion.xlsx")
 # format cotton mouse --------
 mouse.raw$specimen<-paste(mouse.raw$institution,mouse.raw$catalog_number,sep="-")
 mouse<-dplyr::select(mouse.raw,-c(institution,catalog_number,genus,species,filestart,level_fromfloor,
-                           voxels,locality))
+                                  voxels,locality))
 
 mouse$Order<-"Rodentia"
 mouse$Species<-"Peromyscus gossypinus"
@@ -64,7 +65,7 @@ mouse$m3.width<-apply(cbind(mouse$m3.w1,mouse$m3.w2,mouse$m3.w3),1,mean)
 mouse$total.length<-mouse$m1.length+mouse$m2.length+mouse$m3.length
 #clean data
 mouse<-dplyr::select(mouse,specimen,state,county,sex,m1.length,m1.width,m2.length,m2.width,
-              m3.length,m3.width,total.length)
+                     m3.length,m3.width,total.length)
 #calculate crown area:
 mouse$m1.area<-mouse$m1.length*mouse$m1.width
 mouse$m2.area<-mouse$m2.length*mouse$m2.width
@@ -179,8 +180,9 @@ mouse.MMC.2add$PMM<-mouse.MMC.2add$`Measured by`<-NA
 
 mouse.MMC.2add<-dplyr::select(mouse.MMC.2add,-m3.m1L)
 
+#no need to write raw measures because these are only Monson SI + Peromyscus, 
+#which are/will be published already in separate tabels
 compMMC<-rbind(compMMC.raw,mouse.MMC.2add)
-write.csv(compMMC,"output/SI_TableX_LengthsIndv.csv")
 
 # format fossils -----
 fossil.raw$length<-apply(cbind(fossil.raw$length1,fossil.raw$length2,fossil.raw$length3),1,
@@ -268,17 +270,17 @@ cbind(U.MMC, U.ICM21[,5:8], U.ICM31[,5:8]) %>%
 
 # master table of mouse stats ------
 #make a table matching names to ratio
-ratio<-matrix(c("m3.m1L","MMC.mean","MMC.SD","MMC.V",
-                "m2.m1L","MMC2.mean","MMC2.SD","MMC2.V",
-                "m3.m1A","m3m1.mean","m3m1.SD","m3m1.V",
-                "m2.m1A","m2m1.mean","m2m1.SD","m2m1.V"),byrow = TRUE,ncol=4)
+ratio<-matrix(c("m3.m1L","MMC.mean","MMC.SD",
+                "m2.m1L","MMC2.mean","MMC2.SD",
+                "m3.m1A","m3m1.mean","m3m1.SD",
+                "m2.m1A","m2m1.mean","m2m1.SD"),byrow = TRUE,ncol=3)
 
 #make table of summary stats for total mouse population, mouse.stats
 mouse.mode<-posterior.mode(as.mcmc(mouse.ratio.estimated.table))
 
 mouse.stats<-data.frame(Mu=rep(NA,nrow(ratio)),row.names=ratio[,1])
 mouse.stats$Mu<-ratio[,2] %>% mouse.mode[.]
-mouse.stats$Sigma<-ratio[,4] %>% mouse.mode[.] %>% sqrt
+mouse.stats$Sigma<-ratio[,3] %>% mouse.mode[.]
 mouse.stats$CV<-mouse.stats$Sigma / mouse.stats$Mu * 100
 row.names(mouse.stats)<-ratio[,1]
 
@@ -290,7 +292,7 @@ ratio.pop.CV<- mouse %>% group_by(state) %>%
             CV.m2m1=sd(m2.m1A)/mean(m2.m1A)*100,mean.m2m1=mean(m2.m1A)) 
 #add total
 ratio.pop.CV.2<-rbind(select(ratio.pop.CV,state,CV.MMC,CV.m3m1,CV.m2m1),
-                    c("Total",mouse.stats$CV[1],mouse.stats$CV[2],mouse.stats$CV[3])) %>%
+                      c("Total",mouse.stats$CV[1],mouse.stats$CV[2],mouse.stats$CV[3])) %>%
   melt(id="state")
 #take back out of character
 ratio.pop.CV.2$value<-as.numeric(ratio.pop.CV.2$value)
@@ -314,9 +316,9 @@ binom.test(mice.high.CV,12,alternative = "greater") #no
 ICM.dimorph<-compICM.indv %>% filter(.,compICM.indv$Sex !="unknown")
 ICM.di.spp.CV<-ICM.dimorph %>% group_by(Species) %>% 
   summarize(N=n(),
-  CV.m3m1=sd(m3.m1A)/mean(m3.m1A)*100,mean.m3m1=mean(m3.m1A),
-  CV.m2m1=sd(m2.m1A)/mean(m2.m1A)*100,mean.m2m1=mean(m2.m1A),
-  CV.m3.area=sd(M3.Area)/mean(M3.Area)*100,mean.m3.area=mean(M3.Area))
+            CV.m3m1=sd(m3.m1A)/mean(m3.m1A)*100,mean.m3m1=mean(m3.m1A),
+            CV.m2m1=sd(m2.m1A)/mean(m2.m1A)*100,mean.m2m1=mean(m2.m1A),
+            CV.m3.area=sd(M3.Area)/mean(M3.Area)*100,mean.m3.area=mean(M3.Area))
 
 ICM.di.sex.CV<-ICM.dimorph %>% group_by(Species,Sex) %>% 
   summarize(N=n(),
@@ -332,17 +334,17 @@ for (i in 1:n.spp){
   spp.choice<-ICM.di.sex.CV %>% filter(Species %in% ICM.di.spp.CV$Species[i])
   n.cv<-c(n.cv,
           (which(spp.choice$CV.m3m1 < ICM.di.spp.CV$CV.m3m1[i]) %>% length) + 
-    (which(spp.choice$CV.m2m1 < ICM.di.spp.CV$CV.m2m1[i]) %>% length))
+            (which(spp.choice$CV.m2m1 < ICM.di.spp.CV$CV.m2m1[i]) %>% length))
   n.size<-c(n.size, 
-           which(spp.choice$CV.m3.area < ICM.di.spp.CV$CV.m3.area[i]) %>% length)
+            which(spp.choice$CV.m3.area < ICM.di.spp.CV$CV.m3.area[i]) %>% length)
   #also a U-test?
   sample.choice<-ICM.dimorph %>% filter(Species %in% ICM.di.spp.CV$Species[i])
   m3.size.U<-rbind(m3.size.U,
-              Pairwise.U(sample.choice$M3.Area,sample.choice$Sex))
+                   Pairwise.U(sample.choice$M3.Area,sample.choice$Sex))
   m3m1.U<-rbind(m3m1.U,
-    Pairwise.U(sample.choice$m3.m1A,sample.choice$Sex))
+                Pairwise.U(sample.choice$m3.m1A,sample.choice$Sex))
   m2m1.U<-rbind(m2m1.U,
-    Pairwise.U(sample.choice$m2.m1A,sample.choice$Sex))
+                Pairwise.U(sample.choice$m2.m1A,sample.choice$Sex))
 }
 row.names(m3m1.U)<-row.names(m2m1.U)<-ICM.di.spp.CV$Species
 binom.test(sum(n.cv),n.spp*2*2,alternative = "greater") #no
@@ -354,18 +356,26 @@ ratio.sex.CV<-bind_rows(ICM.di.sex.CV,ICM.di.spp.CV) %>%
   select(Species, Sex, CV.m3m1, CV.m2m1)
 ratio.sex.CV.2<-melt(ratio.sex.CV, id=c("Species","Sex"))
 
-## sensitivity of mean and sd of ratios to sample size -----------
-source(paste(locateScripts,"molar_ratio_sample_size.R"))
+# sensitivity of mean and sd of ratios to sample size -----------
+
+#which parameters to test
+resampled.names<-c("N","MMC.mean","MMC.SD",#"MMC.max","MMC.min", #maxima and minima are here just in case you're curious
+                   "MMC2.mean","MMC2.SD",#"MMC2.max","MMC2.min",
+                   "m3m1.mean","m3m1.SD",#"m3m1.max","m3m1.min",
+                   "m2m1.mean","m2m1.SD")#,"m2m1.max","m2m1.min")
+species.name<-"Peromyscus gossypinus"
+source(paste(locateScripts,"molar_ratio_sample_size.R",sep="/"))
 # test for phylogenetic signal in CV --------------
 # source(paste(locateScripts,"molar_ratio_physig.R",sep="/"))
 # create simulated composite molar rows --------
 #create resampled pseudoreplicates of molars sizes and ratios from composite cheek teeth
 #both, simulate all ratios at once:
-sim.isolate.names<-c("N","m1.area","m2.area","m3.area","m1.length","m2.length","m3.length",
-                     "m2m1A.SD","m3m1.SD","MMC.SD",
-                     "m2.m1A","m3.m1A","m3.m1L")
+sim.isolate.names<-c("N","m1.area","m2.area","m3.area",
+                     "m1.length","m2.length","m3.length",
+                     "m2m1.SD","m3m1.SD","MMC.SD","MMC2.SD",
+                     "m2.m1A","m3.m1A","m3.m1L","m2.m1L")
 sim.isolate.base<-matrix(NA,nrow=replicates,ncol=length(sim.isolate.names),
-                       dimnames=list(c(NULL),sim.isolate.names)) %>% as.data.frame #empty holder frame
+                         dimnames=list(c(NULL),sim.isolate.names)) %>% as.data.frame #empty holder frame
 for (sample.n in 1:50){
   print(paste("starting sample size",sample.n))
   sim.isolate<-sim.isolate.base
@@ -383,36 +393,36 @@ for (sample.n in 1:50){
     sim.isolate$m1.length[i]<-m1L.sample %>% mean
     sim.isolate$m2.length[i]<-m2L.sample %>% mean
     sim.isolate$m3.length[i]<-m3L.sample %>% mean
-    # print(paste("pseudopopulating rep", i))
-    #make a pseudosample from the isolated molars by resampling 50% of specimen each time
-    pseudopop.names<-c("m2m1A","m3m1A","m3m1L")
+    #make a pseudosample from the isolated molars by resampling 1 specimen each time
+    pseudopop.names<-c("m2m1A","m3m1A","m3m1L","m2m1L")
     pseudopop<-matrix(NA,nrow=replicates,ncol=length(pseudopop.names),
-                             dimnames=list(c(NULL),pseudopop.names)) %>% as.data.frame #empty holder frame
+                      dimnames=list(c(NULL),pseudopop.names)) %>% as.data.frame #empty holder frame
     for(j in 1:replicates){ #ceiling(sample.n/2)
-      pseudopop$m2m1A[j]<-sample(m2A.sample,size=1)/
-        sample(m1A.sample,size=1)
-      pseudopop$m3m1A[j]<-sample(m3A.sample,size=1)/
-        sample(m1A.sample,size=1)
-      pseudopop$m3m1L[j]<-sample(m3L.sample,size=1)/
-        sample(m1L.sample,size=1)
+      pseudopop$m2m1A[j]<-sample(m2A.sample,size=1)/sample(m1A.sample,size=1)
+      pseudopop$m3m1A[j]<-sample(m3A.sample,size=1)/sample(m1A.sample,size=1)
+      pseudopop$m3m1L[j]<-sample(m3L.sample,size=1)/sample(m1L.sample,size=1)
+      pseudopop$m2m1L[j]<-sample(m2L.sample,size=1)/sample(m1L.sample,size=1)
     }
     sim.isolate$m2m1.SD[i]<-pseudopop$m2m1A %>% sd
     sim.isolate$m3m1.SD[i]<-pseudopop$m3m1A %>% sd
     sim.isolate$MMC.SD[i]<-pseudopop$m3m1L %>% sd
+    sim.isolate$MMC2.SD[i]<-pseudopop$m2m1L %>% sd
   }
   
   sim.isolate$m2.m1A<-sim.isolate$m2.area/sim.isolate$m1.area
   sim.isolate$m3.m1A<-sim.isolate$m3.area/sim.isolate$m1.area
   sim.isolate$m3.m1L<-sim.isolate$m3.length/sim.isolate$m1.length
+  sim.isolate$m2.m1L<-sim.isolate$m2.length/sim.isolate$m1.length
   if(sample.n==1){simulation.stats<-as.data.frame(sim.isolate)}
   if(sample.n>=2){simulation.stats<-rbind(simulation.stats,sim.isolate)}
 }
+save(simulation.stats,file = "output/composite_simulation_stats.RData")
 
 ## compare stats between simulated and real samples ------
 #objects are simulation.stats and mouse.stats and ratio
 sim.metric.names<-c("too.big","too.small","too.little","too.much")
 #mouse.ratio.estimated.table comes from molar_ratio_ICM_expectations.R
-SD.CI<-HPDinterval(as.mcmc(mouse.ratio.estimated.table)) %>% sqrt %>% round(.,5) %>% as.data.frame 
+SD.CI<-HPDinterval(as.mcmc(mouse.ratio.estimated.table)) %>% as.data.frame 
 
 for(ratio.choice in 1:nrow(ratio)){
   sim.metric<-matrix(NA,nrow=50,ncol=length(sim.metric.names),
@@ -429,9 +439,9 @@ for(ratio.choice in 1:nrow(ratio)){
     #and use it to model some kind of confidence interval, is that interval greater than, equal to, or
     #smaller than the true confidence interval?
     sim.metric$too.much[i]<-which(simulation.subsample[,ratio[ratio.choice,3]] > 
-                                    SD.CI[ratio[ratio.choice,4],"upper"]) %>% length
+                                    SD.CI[ratio[ratio.choice,3],"upper"]) %>% length
     sim.metric$too.little[i]<-which(simulation.subsample[,ratio[ratio.choice,3]] < 
-                                      SD.CI[ratio[ratio.choice,4],"lower"]) %>% 
+                                      SD.CI[ratio[ratio.choice,3],"lower"]) %>% 
       length
   }
   sim.metric$ratio.choice<-ratio[ratio.choice,1]
@@ -466,7 +476,7 @@ ggplot() +
 ## #compare means -----
 t.test(mouse$m2.m1A, simulation.stats$m2.m1A[which(simulation.stats$N==1)],
        alternative="two.sided",paired=FALSE,var.equal=FALSE) #%>% 
-  # capture.output(.,file="inhibitory_results/gossypinus_ttest_m2m1.txt")
+# capture.output(.,file="inhibitory_results/gossypinus_ttest_m2m1.txt")
 t.test(mouse$m3.m1, sim.isolate.area$m3.m1,alternative="two.sided",paired=FALSE,var.equal=FALSE) %>% 
   capture.output(.,file="inhibitory_results/gossypinus_ttest_m3m1.txt")
 

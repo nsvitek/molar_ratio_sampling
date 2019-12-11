@@ -62,6 +62,27 @@ abline(a=mouse.RMA.model.l$regression.results$Intercept[3],
 abline(a=-1, b=2,col="black") #ICM slope
 dev.off()
 
+# composite molar rows -------
+#plot complete molar rows vs. simulated composite molar rows
+cairo_pdf("output/gossypinus_ICM.pdf",width=4,height=4)
+ggplot()+ 
+  geom_point(data=simulation.stats[which(simulation.stats$N==1),],
+             aes(x=m2.m1A,y=m3.m1A),alpha=0.5,fill="gray20",color="gray20",pch=21) +
+  geom_point(data=mouse,aes(x=m2.m1A, y=m3.m1A, pch=state),size=4,fill="darkred") +
+  scale_shape_manual(values=c(21,22,23,24))+
+  xlab("M2:M1")+ylab("M3:M1") +
+  coord_cartesian(xlim = c(0.6,1.2),ylim = c (0.35,0.95))+
+  theme_minimal() + theme(legend.position = "none")
+dev.off()
+
+sample.size.plot<-ggplot(data=resample.melted, aes(x=N,y=value))+
+  facet_grid(facets = statistic + tooth ~ dimension, scales="free_y", switch="y") +
+  geom_point(alpha=0.25,aes(color=outside)) +
+  geom_smooth(color="black",method="auto") + #make smoother, prettier?
+  scale_color_manual(values=c("gray","red")) +
+  ggtitle(species.name) + 
+  theme_minimal() + theme(legend.position="none",axis.title.y=element_blank(),strip.placement = "outside")
+
 # OLD --------
 
 

@@ -431,10 +431,10 @@ for(ratio.choice in 1:nrow(ratio)){
     #with respect to sample size
     simulation.subsample<-simulation.stats[which(simulation.stats$N==i),]
     #How often is your simulated "composite" molar row outside of the 95% CI of the true population mean?
-    sim.metric$too.big[i]<-which(simulation.subsample[,ratio[ratio.choice,1]] > mouse.stats$CI.U[ratio.choice]) %>% 
-      length()
-    sim.metric$too.small[i]<-which(simulation.subsample[,ratio[ratio.choice,1]] < mouse.stats$CI.L[ratio.choice]) %>% 
-      length()
+    sim.metric$too.big[i]<-which(simulation.subsample[,ratio[ratio.choice,1]] > 
+                                   SD.CI[ratio[ratio.choice,2],"upper"]) %>% length()
+    sim.metric$too.small[i]<-which(simulation.subsample[,ratio[ratio.choice,1]] < 
+                                     SD.CI[ratio[ratio.choice,2],"lower"]) %>% length()
     #Can you model a CI by resampling isolated teeth? Make the "pseudosample" of isolated teeth
     #and use it to model some kind of confidence interval, is that interval greater than, equal to, or
     #smaller than the true confidence interval?
@@ -454,24 +454,11 @@ for(ratio.choice in 1:nrow(ratio)){
 #   dcast(.,N ~ ratio.name + variable)
 write.csv(sim.metrics,"output/resample_metrics.csv")
 
-ggplot(data=simulation.stats, aes_string(x="N",y="m3.m1A.SD"))+
+ggplot(data=simulation.stats, aes_string(x="N",y="m3m1.SD"))+
   geom_point(alpha=0.25,color="gray") +
-  # geom_smooth(color="black",method="loess") + #make smoother, prettier? or quantile?
-  geom_hline(yintercept=SD.CI["V.m3.m1A","lower"],linetype="dashed",color="blue",size=1)+
-  geom_hline(yintercept=SD.CI["V.m3.m1A","upper"],linetype="dashed",color="blue",size=1) 
-
-ggplot() +
-  geom_point(data=simulation.subsample,aes(x=m2.m1A, y=m3.m1A))+
-  geom_point(data=pseudopop, aes(x=m2m1A,y=m3m1A),color="blue")+
-  geom_point(data=mouse,aes(x=m2.m1A,y=m3.m1A),size=3,color="red")
-
-#If yes, Does this creation of a "pseudosample" also mimic the covariance structure of the true sample?
-#Use MCMCGlmm results of posterior distribution. Take mode/HPD for covariance for "true" sample
-#Take the speudosample to calculate covariances.
-#subtract that covariance from the "true" modal covariance and see if it's in the HPD
-# HPDinterval(as.mcmc(mouseA.estimated.table)) %>% round(.,5)
-# cbind(posterior.mode(as.mcmc(estimated.table)),
-#       HPDinterval(as.mcmc(estimated.table)))
+  # geom_smooth(color="black") + #make smoother, prettier? or quantile?
+  geom_hline(yintercept=SD.CI["m3m1.SD","lower"],linetype="dashed",color="blue",size=1)+
+  geom_hline(yintercept=SD.CI["m3m1.SD","upper"],linetype="dashed",color="blue",size=1) 
 
 ## #compare means -----
 t.test(mouse$m2.m1A, simulation.stats$m2.m1A[which(simulation.stats$N==1)],
@@ -488,20 +475,6 @@ poly.right<-data.frame(id=rep("one",4),x=c(1,1,2.2,2.2),y=c(0,1,2,0))
 poly.left<-data.frame(id=rep("two",4),x=c(0,1,1,0),y=c(0,1,2.2,2.2))
 
 
-#plot complete molar rows vs. simulated composite molar rows
-cairo_pdf("inhibitory_results/gossypinus_ICM.pdf",width=4,height=4)
-ggplot()+ 
-  # geom_polygon(data=poly.right,aes(x=x,y=y)) +
-  # geom_polygon(data=poly.left,aes(x=x,y=y)) +
-  geom_point(data=simulation.stats[which(simulation.stats$N==10),],
-             aes(x=m2.m1A,y=m3.m1A),alpha=0.5,fill="gray20",color="gray20",pch=21) +
-  geom_point(data=mouse,aes(x=m2.m1A, y=m3.m1A, pch=state),size=4,fill=hue_pal()(7)[1]) +
-  # scale_shape_manual(values=c(21,22,23))+
-  # coord_cartesian(xlim = c(0.7,0.95),ylim = c (0.5,0.75))+ 
-  xlab("M/2:M/1")+ylab("M/3:M/1") +
-  theme_minimal() +theme(legend.position = "none")
-dev.off()
-embedFonts("inhibitory_results/gossypinus_ICM.pdf")
 
 #repeat, but with lengths instead of areas
 ggplot()+ 
@@ -525,25 +498,6 @@ ggplot()+
   coord_cartesian(xlim = c(0.6,1),ylim = c (0.5,0.8))+
   theme_minimal()
 
-## #NOTES ------
-#Test from Roseman and Delezene 2019: if ICM working, M3 = 2*M2 - M1., or M3 = 2 * M2 + (-1) * M1
-#The other mathematical predictions involve covariances, which cannot do with isolated molars,
-#could possibly use equation 3 if you have a bunch of two-tooth jaws.
-#Schroer and Wood: this is the equation that ends up with a slope of 2 and an intercept of -1
-#stated another way by Bernal: [M3/M1 = 2 * (M2/M1) - 1]
-#original statement in Kavanagh is 1+[(a-i)/i](x-1), where a=activator, i=inhibitor, x=tooth position
-#so M1 = 1
-#and M2 = 1+(a-i)/i, or 1+(a/i)-1 or a/i
-#and M3 = 1+(a/i)*2-(i/i)*2 or 2*(a/i) - 1, which seems to most nicely translate to R&D's substitution
-#or Bernal's ratio substitutions: These equations are all how you get the line. 
-#so how you get Polly's model-consistent space? In PDP's space, for example, you can have
-#m2m1 = 1 and m3m1 = 0, or (0.5, 0.5), or (1, 0.5)
-#that is, that "2" in the IC model could be any number...between...
-#and the "1" can be between 0 and 1?
-#it seem to be that m2m1 = 1 and m3m1 = m2m1, if you're between those in a certain way, then you're okay
-#m3m1 < m2m1 < 1 or
-#1 < m3m1 < m2m1 describes the space, which is to say a space consistent with 
-#cumulative change (words of H&G) or directional change resulting from a developmental cascade (PDP)
 
 ## #Tables ------
 #show distribution of CV, SD, Mean, Range for sample sizes for each metric?

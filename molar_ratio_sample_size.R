@@ -35,10 +35,24 @@ for (sample.n in 2:nrow(mouse)){
   if(sample.n>=3){resampled.stats<-rbind(resampled.stats,resampled)}
 }
 
-# evaluate resamples --------
-#get HPD interval for variables
-HPD<-HPDinterval(as.mcmc(mouse.ratio.estimated.table))
+# reformat master mouse confidence intervals -----
+mouse.stats$ID<-row.names(mouse.stats)
+mouse.CI<-mouse.stats %>% select(-Mu,-Sigma,-CV) %>% melt(.,id="ID")
+mouse.CI$direction<-"upper"
+mouse.CI$direction[grepl("L",mouse.CI$variable)]<-"lower"
+mouse.CI$metric<-"MMC2"
+mouse.CI$metric[grepl("m3.m1L",mouse.CI$ID)]<-"MMC"
+mouse.CI$metric[grepl("m3.m1A",mouse.CI$ID)]<-"m3m1"
+mouse.CI$metric[grepl("m2.m1A",mouse.CI$ID)]<-"m2m1"
+mouse.CI$type<-"mean"
+mouse.CI$type[grepl("S",mouse.CI$variable)]<-"SD"
+mouse.CI$label<-paste(mouse.CI$metric,mouse.CI$type,sep=".")
+mouse.CI<-mouse.CI %>% select(direction,label,value) %>%
+  dcast(.,label ~ direction)
+row.names(mouse.CI)<-mouse.CI$label
+CI<-select(mouse.CI,-label)
 
+# evaluate resamples --------
 #calculate summary stats for original mouse dataset to use as standar
 for(ratio.choice in 1:nrow(ratio)){
   #create a vector of mean error
@@ -52,18 +66,18 @@ for(ratio.choice in 1:nrow(ratio)){
   for (i in 2:nrow(mouse)){
     #little object of the sample of means
     resampled.means<-resampled.stats[which(resampled.stats$N==i),ratio[ratio.choice,2]] %>% unlist
-    #calculate the proportion above and below the HPD
-    vs.true$prop.mean.above.95ci[i-1]<-which(resampled.means > (ratio[ratio.choice,2] %>% HPD[.,2])) %>% 
+    #calculate the proportion above and below the CI
+    vs.true$prop.mean.above.95ci[i-1]<-which(resampled.means > (ratio[ratio.choice,2] %>% CI[.,2])) %>% 
       length(.)/replicates
-    vs.true$prop.mean.below.95ci[i-1]<-which(resampled.means < (ratio[ratio.choice,2] %>% HPD[.,1])) %>% 
+    vs.true$prop.mean.below.95ci[i-1]<-which(resampled.means < (ratio[ratio.choice,2] %>% CI[.,1])) %>% 
       length(.)/replicates
     #get range of means
     vs.true$max.mean[i-1]<-max(resampled.means)
     vs.true$min.mean[i-1]<-min(resampled.means)
     resampled.sd<-resampled.stats[which(resampled.stats$N==i),ratio[ratio.choice,3]] %>% unlist
-    vs.true$prop.sd.above.95ci[i-1]<-which(resampled.sd > (ratio[ratio.choice,3] %>% HPD[.,2]) ) %>% 
+    vs.true$prop.sd.above.95ci[i-1]<-which(resampled.sd > (ratio[ratio.choice,3] %>% CI[.,2]) ) %>% 
       length(.)/replicates
-    vs.true$prop.sd.below.95ci[i-1]<-which(resampled.sd < (ratio[ratio.choice,3] %>% HPD[.,1])) %>% 
+    vs.true$prop.sd.below.95ci[i-1]<-which(resampled.sd < (ratio[ratio.choice,3] %>% CI[.,1])) %>% 
       length(.)/replicates
   }
   vs.true$ratio.name<-ratio[ratio.choice,1]
@@ -88,24 +102,11 @@ resample.melted$dimension<-"Area"
 resample.melted$dimension[grepl("MMC",resample.melted$variable,perl=TRUE)]<-"Length"
 resample.melted$statistic<-"Mean"
 resample.melted$statistic[grepl("SD",resample.melted$variable,perl=TRUE)]<-"Standard Deviation"
-resample.melted$HPD.upper<-apply(resample.melted,1, function(x) HPD[x[2],2])
-resample.melted$HPD.lower<-apply(resample.melted,1, function(x) HPD[x[2],1])
-resample.melted$outside<-(resample.melted$HPD.lower > resample.melted$value) |
-                            (resample.melted$HPD.upper < resample.melted$value)
+resample.melted$CI.upper<-apply(resample.melted,1, function(x) CI[x[2],"upper"])
+resample.melted$CI.lower<-apply(resample.melted,1, function(x) CI[x[2],"lower"])
+resample.melted$outside<-(resample.melted$CI.lower > resample.melted$value) |
+                            (resample.melted$CI.upper < resample.melted$value)
  
-sample.size.plot<-ggplot(data=resample.melted, aes(x=N,y=value))+
-  facet_grid(facets = statistic + tooth ~ dimension, scales="free_y", switch="y") +
-  geom_point(alpha=0.25,aes(color=outside)) +
-  geom_smooth(color="black",method="auto") + #make smoother, prettier?
-  scale_color_manual(values=c("gray","red")) +
-  ggtitle(species.name) + 
-  theme_minimal() + theme(legend.position="none",axis.title.y=element_blank(),strip.placement = "outside")
-ggsave(sample.size.plot, filename = paste("output/",species.name,"_resample.pdf",sep=""), dpi = 300)
-
-#melt sample size evaluation, this may not get used
-ssi.long<-sample.size.indicators %>% select(N,ratio.name,outside.mean,outside.var) %>%
-  melt(.,id=c("N","ratio.name"))
-
 #recast to write evaluation to a table
 sample.size.indicators.to.write<-sample.size.indicators %>%
   select(N,ratio.name,outside.mean,outside.var) %>%
@@ -114,3 +115,14 @@ sample.size.indicators.to.write<-sample.size.indicators %>%
 write.csv(sample.size.indicators.to.write,
           paste("output/",species.name,"_sample_size_metrics.csv",sep=""),
           row.names = FALSE)
+
+# plot --------
+sample.size.plot<-ggplot(data=resample.melted, aes(x=N,y=value))+
+  facet_grid(facets = statistic + tooth ~ dimension, scales="free_y", switch="y") +
+  geom_point(alpha=0.25,aes(color=outside)) +
+  geom_smooth(color="black",method="auto") + #make smoother, prettier?
+  scale_color_manual(values=c("gray","red")) +
+  ggtitle(species.name) + theme_minimal() + 
+  theme(legend.position="none",axis.title.y=element_blank(),strip.placement = "outside",
+        plot.title=element_text(face="italic"))
+ggsave(sample.size.plot, filename = paste("output/",species.name,"_resample.pdf",sep=""), dpi = 300)

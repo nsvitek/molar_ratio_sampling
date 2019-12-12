@@ -276,14 +276,17 @@ ratio<-matrix(c("m3.m1L","MMC.mean","MMC.SD",
                 "m2.m1A","m2m1.mean","m2m1.SD"),byrow = TRUE,ncol=3)
 
 #make table of summary stats for total mouse population, mouse.stats
-mouse.mode<-posterior.mode(as.mcmc(mouse.ratio.estimated.table))
-
 mouse.stats<-data.frame(Mu=rep(NA,nrow(ratio)),row.names=ratio[,1])
-mouse.stats$Mu<-ratio[,2] %>% mouse.mode[.]
-mouse.stats$Sigma<-ratio[,3] %>% mouse.mode[.]
+mouse.stats$Mu<-mouse[,ratio[,1]] %>% apply(.,2,mean)
+mouse.stats$Sigma<-mouse[,ratio[,1]] %>% apply(.,2,sd)
 mouse.stats$CV<-mouse.stats$Sigma / mouse.stats$Mu * 100
-row.names(mouse.stats)<-ratio[,1]
-
+#confidence intervals, assuming normality, from Sokal and Rohlf
+mouse.stats$M.CI.U<-mouse.stats$Mu + mouse.stats$Sigma * 1.96
+mouse.stats$M.CI.L<-mouse.stats$Mu - mouse.stats$Sigma * 1.96
+mouse.stats$S.CI.L<-(((nrow(mouse)-1) * (mouse.stats$Sigma)^2) /
+                            qchisq(c(0.975),df=nrow(mouse)-1)) %>% sqrt
+mouse.stats$S.CI.U<-(((nrow(mouse)-1) * (mouse.stats$Sigma)^2) /
+                            qchisq(c(0.025),df=nrow(mouse)-1)) %>% sqrt
 # geographic variation: signs test ----------- 
 #make a table of CVs by state
 ratio.pop.CV<- mouse %>% group_by(state) %>% 
@@ -373,7 +376,7 @@ source(paste(locateScripts,"molar_ratio_sample_size.R",sep="/"))
 sim.isolate.names<-c("N","m1.area","m2.area","m3.area",
                      "m1.length","m2.length","m3.length",
                      "m2m1.SD","m3m1.SD","MMC.SD","MMC2.SD",
-                     "m2.m1A","m3.m1A","m3.m1L","m2.m1L")
+                     "m2m1.mean","m3m1.mean","MMC.mean","MMC2.mean")
 sim.isolate.base<-matrix(NA,nrow=replicates,ncol=length(sim.isolate.names),
                          dimnames=list(c(NULL),sim.isolate.names)) %>% as.data.frame #empty holder frame
 for (sample.n in 1:50){
@@ -398,10 +401,10 @@ for (sample.n in 1:50){
     pseudopop<-matrix(NA,nrow=replicates,ncol=length(pseudopop.names),
                       dimnames=list(c(NULL),pseudopop.names)) %>% as.data.frame #empty holder frame
     for(j in 1:replicates){ #ceiling(sample.n/2)
-      pseudopop$m2m1A[j]<-sample(m2A.sample,size=1)/sample(m1A.sample,size=1)
-      pseudopop$m3m1A[j]<-sample(m3A.sample,size=1)/sample(m1A.sample,size=1)
-      pseudopop$m3m1L[j]<-sample(m3L.sample,size=1)/sample(m1L.sample,size=1)
-      pseudopop$m2m1L[j]<-sample(m2L.sample,size=1)/sample(m1L.sample,size=1)
+      pseudopop$m2m1.mean[j]<-sample(m2A.sample,size=1)/sample(m1A.sample,size=1)
+      pseudopop$m3m1.mean[j]<-sample(m3A.sample,size=1)/sample(m1A.sample,size=1)
+      pseudopop$MMC.mean[j]<-sample(m3L.sample,size=1)/sample(m1L.sample,size=1)
+      pseudopop$MMC2.mean[j]<-sample(m2L.sample,size=1)/sample(m1L.sample,size=1)
     }
     sim.isolate$m2m1.SD[i]<-pseudopop$m2m1A %>% sd
     sim.isolate$m3m1.SD[i]<-pseudopop$m3m1A %>% sd
@@ -418,86 +421,70 @@ for (sample.n in 1:50){
 }
 save(simulation.stats,file = "output/composite_simulation_stats.RData")
 
-## compare stats between simulated and real samples ------
+# compare stats between simulated and real samples ------
 #objects are simulation.stats and mouse.stats and ratio
 sim.metric.names<-c("too.big","too.small","too.little","too.much")
-#mouse.ratio.estimated.table comes from molar_ratio_ICM_expectations.R
-SD.CI<-HPDinterval(as.mcmc(mouse.ratio.estimated.table)) %>% as.data.frame 
 
 for(ratio.choice in 1:nrow(ratio)){
-  sim.metric<-matrix(NA,nrow=50,ncol=length(sim.metric.names),
+  sim.metrical<-matrix(NA,nrow=50,ncol=length(sim.metric.names),
                      dimnames=list(c(NULL),sim.metric.names)) %>% as.data.frame #empty holder frame
+  sim.metrical$N<-rep(1:50)
   for (i in 1:50){
     #with respect to sample size
     simulation.subsample<-simulation.stats[which(simulation.stats$N==i),]
     #How often is your simulated "composite" molar row outside of the 95% CI of the true population mean?
-    sim.metric$too.big[i]<-which(simulation.subsample[,ratio[ratio.choice,1]] > 
-                                   SD.CI[ratio[ratio.choice,2],"upper"]) %>% length()
-    sim.metric$too.small[i]<-which(simulation.subsample[,ratio[ratio.choice,1]] < 
-                                     SD.CI[ratio[ratio.choice,2],"lower"]) %>% length()
+    sim.metrical$too.big[i]<-which(simulation.subsample[,ratio[ratio.choice,2]] > 
+                                   CI[ratio[ratio.choice,2],"upper"]) %>% length()/replicates
+    sim.metrical$too.small[i]<-which(simulation.subsample[,ratio[ratio.choice,2]] < 
+                                     CI[ratio[ratio.choice],"lower"]) %>% length()/replicates
     #Can you model a CI by resampling isolated teeth? Make the "pseudosample" of isolated teeth
     #and use it to model some kind of confidence interval, is that interval greater than, equal to, or
     #smaller than the true confidence interval?
-    sim.metric$too.much[i]<-which(simulation.subsample[,ratio[ratio.choice,3]] > 
-                                    SD.CI[ratio[ratio.choice,3],"upper"]) %>% length
-    sim.metric$too.little[i]<-which(simulation.subsample[,ratio[ratio.choice,3]] < 
-                                      SD.CI[ratio[ratio.choice,3],"lower"]) %>% 
-      length
+    sim.metrical$too.much[i]<-which(simulation.subsample[,ratio[ratio.choice,3]] > 
+                                    CI[ratio[ratio.choice,3],"upper"]) %>% length()/replicates
+    sim.metrical$too.little[i]<-which(simulation.subsample[,ratio[ratio.choice,3]] < 
+                                      CI[ratio[ratio.choice,3],"lower"]) %>% length()/replicates
   }
-  sim.metric$ratio.choice<-ratio[ratio.choice,1]
-  if(ratio.choice==1){sim.metrics<-sim.metric}
-  if(ratio.choice>=2){sim.metrics<-rbind(sim.metrics,sim.metric)}
+  sim.metrical$ratio.choice<-ratio[ratio.choice,1]
+  if(ratio.choice==1){sim.metrics<-sim.metrical}
+  if(ratio.choice>=2){sim.metrics<-rbind(sim.metrics,sim.metrical)}
 }
-
+#tally totals
+sim.metrics$outside.mean<-(sim.metrics$too.big + sim.metrics$too.small) %>%  round(.,3)
+sim.metrics$outside.var<-(sim.metrics$too.much + sim.metrics$too.little) %>% round(.,3)
+# reformat results for reporting purposes --------
 #recast to write to a table
-# sample.size.indicators.to.write<-melt(sample.size.indicators,id=c("N","ratio.name")) %>% 
-#   dcast(.,N ~ ratio.name + variable)
-write.csv(sim.metrics,"output/resample_metrics.csv")
+sim.metrics.to.write<-sim.metrics %>%
+  select(N,ratio.choice,outside.mean,outside.var) %>%
+  melt(.,id=c("N","ratio.choice")) %>%
+  dcast(.,N ~ ratio.choice + variable)
+write.csv(sim.metrics.to.write,
+          paste("output/",species.name,"_composite_size_metrics.csv",sep=""),
+          row.names = FALSE)
 
-ggplot(data=simulation.stats, aes_string(x="N",y="m3m1.SD"))+
-  geom_point(alpha=0.25,color="gray") +
-  # geom_smooth(color="black") + #make smoother, prettier? or quantile?
-  geom_hline(yintercept=SD.CI["m3m1.SD","lower"],linetype="dashed",color="blue",size=1)+
-  geom_hline(yintercept=SD.CI["m3m1.SD","upper"],linetype="dashed",color="blue",size=1) 
+#melt to to plot
+sim.melted<-simulation.stats %>% select(-m1.area,-m2.area,-m3.area,-m1.length,-m2.length,-m3.length) %>% 
+  melt(.,id=c("N"))
+sim.melted$tooth<-"M3"
+sim.melted$tooth[grepl("2",sim.melted$variable,perl=TRUE)]<-"M2"
+sim.melted$dimension<-"Area"
+sim.melted$dimension[grepl("MMC",sim.melted$variable,perl=TRUE)]<-"Length"
+sim.melted$statistic<-"Mean"
+sim.melted$statistic[grepl("SD",sim.melted$variable,perl=TRUE)]<-"Standard Deviation"
+sim.melted$CI.upper<-apply(sim.melted,1, function(x) CI[x[2],2])
+sim.melted$CI.lower<-apply(sim.melted,1, function(x) CI[x[2],1])
+sim.melted$outside<-(sim.melted$CI.lower > sim.melted$value) |
+  (sim.melted$CI.upper < sim.melted$value)
 
-## #compare means -----
-t.test(mouse$m2.m1A, simulation.stats$m2.m1A[which(simulation.stats$N==1)],
-       alternative="two.sided",paired=FALSE,var.equal=FALSE) #%>% 
-# capture.output(.,file="inhibitory_results/gossypinus_ttest_m2m1.txt")
-t.test(mouse$m3.m1, sim.isolate.area$m3.m1,alternative="two.sided",paired=FALSE,var.equal=FALSE) %>% 
-  capture.output(.,file="inhibitory_results/gossypinus_ttest_m3m1.txt")
-
-## #evaluate quality of fossil dataset -------
-## #plot data ------
-
-#make the two polygons of "forbidden space" in Kavanagh model
-poly.right<-data.frame(id=rep("one",4),x=c(1,1,2.2,2.2),y=c(0,1,2,0))
-poly.left<-data.frame(id=rep("two",4),x=c(0,1,1,0),y=c(0,1,2.2,2.2))
-
-
-
-#repeat, but with lengths instead of areas
-ggplot()+ 
-  # geom_polygon(data=poly.right,aes(x=x,y=y)) +
-  # geom_polygon(data=poly.left,aes(x=x,y=y)) +
-  geom_point(data=sim.isolate.length,aes(x=m2.m1,y=m3.m1),alpha=0.5,fill="gray20",color="gray20",pch=21) +
-  geom_point(data=mouse,aes(x=m2.m1L, y=m3.m1L, pch=Institution),size=4,fill=hue_pal()(7)[1]) +
-  scale_shape_manual(values=c(21,22,23))+
-  # coord_cartesian(xlim = c(0.5,0.95),ylim = c (0.5,0.95))+
-  xlab("M/2:M/1")+ylab("M/3:M/1") +
-  theme_minimal() +theme(legend.position = "none")
-
-# #compare confidence intervals to distribution
-ggplot()+
-  geom_polygon(data=poly.right,aes(x=x,y=y)) +
-  geom_polygon(data=poly.left,aes(x=x,y=y)) +
-  geom_circle(data=raw.ci,aes(x0=m2.m1,y0=m3.m1,r=ci95),fill="blue",alpha=0.4) +
-  geom_circle(data=sim.a.ci,aes(x0=m2.m1,y0=m3.m1,r=ci95),fill="yellow",alpha=0.4) +
-  geom_point(data=sim.isolate.area,aes(x=m2.m1,y=m3.m1),alpha=0.5,fill="gray20",color="gray20",pch=21) +
-  geom_point(data=mouse,aes(x=m2.m1, y=m3.m1),size=4,pch=21,fill=hue_pal()(7)[1]) +
-  coord_cartesian(xlim = c(0.6,1),ylim = c (0.5,0.8))+
-  theme_minimal()
-
+composite.size.plot<-ggplot(data=sim.melted, aes(x=N,y=value))+
+  facet_grid(facets = statistic + tooth ~ dimension, scales="free_y", switch="y") +
+  geom_point(alpha=0.25,aes(color=outside)) +
+  geom_smooth(color="black",method="auto") + #make smoother, prettier?
+  scale_color_manual(values=c("gray","red")) +
+  ggtitle(species.name) + theme_minimal() + 
+  theme(legend.position="none",axis.title.y=element_blank(),strip.placement = "outside",
+                            plot.title=element_text(face="italic"))
+ggsave(composite.size.plot, filename = paste("output/","composite_sample_size.pdf",sep=""), dpi = 300)
 
 ## #Tables ------
 #show distribution of CV, SD, Mean, Range for sample sizes for each metric?

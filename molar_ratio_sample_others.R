@@ -16,6 +16,8 @@ library(reshape2,lib.loc="/gpfs/home/nvitek/R_packages")
 library(stringr,lib.loc="/gpfs/home/nvitek/R_packages")
 library(MCMCglmm,lib.loc="/gpfs/home/nvitek/R_packages")
 
+MinSize<-41 #the result from Peromyscus dataset, how many you need to confidently reconstruct variance
+
 replicates<-1000
 ratio<-matrix(c("m3.m1L","MMC.mean","MMC.SD",
                 "m2.m1L","MMC2.mean","MMC2.SD"),byrow = TRUE,ncol=3)
@@ -32,14 +34,26 @@ compMMC.raw$m3.m1L<-compMMC.raw$MMC
 
 #get sample size
 MMC.spp.counts<-compMMC.raw %>% group_by(Species) %>% summarize (N=n()) 
-MMC.spp.counts<-MMC.spp.counts %>% filter(N>=43) #43 = minimum sample size that was adequate for all 4 metrics
+MMC.spp.counts<-MMC.spp.counts %>% filter(N>=MinSize) #MinSize = minimum sample size that was adequate for all 4 metrics
 
 for (i in 1:nrow(MMC.spp.counts)){
   #make dataset of new critter, substitute it in for mouse
   species.name<-MMC.spp.counts$Species[i]
   mouse<-compMMC.raw %>% filter(Species == species.name)
+  #make table of summary stats for total mouse population, mouse.stats
+  mouse.stats<-data.frame(Mu=rep(NA,nrow(ratio)),row.names=ratio[,1])
+  mouse.stats$Mu<-mouse[,ratio[,1]] %>% apply(.,2,mean)
+  mouse.stats$Sigma<-mouse[,ratio[,1]] %>% apply(.,2,sd)
+  mouse.stats$CV<-mouse.stats$Sigma / mouse.stats$Mu * 100
+  #confidence intervals, assuming normality, from Sokal and Rohlf
+  mouse.stats$M.CI.U=mouse.stats$Mu + mouse.stats$Sigma * 1.96
+  mouse.stats$M.CI.L=mouse.stats$Mu - mouse.stats$Sigma * 1.96
+  mouse.stats$S.CI.L<-(((nrow(mouse)-1) * (mouse.stats$Sigma)^2) /
+                         qchisq(c(0.975),df=nrow(mouse)-1)) %>% sqrt
+  mouse.stats$S.CI.U<-(((nrow(mouse)-1) * (mouse.stats$Sigma)^2) /
+                         qchisq(c(0.025),df=nrow(mouse)-1)) %>% sqrt
+  
   #and take off running
-  source("molar_ratio_sample_model.R")
   # source(paste(locateScripts,"molar_ratio_sample_size.R",sep="/"))
   source("molar_ratio_sample_size.R")
 }
@@ -60,15 +74,28 @@ compICM2<-compICM2.raw[!is.na(compICM2.raw$m3.m1A),]
 compICM.pub<-compICM2[!is.na(compICM2$m2.m1A),]
 
 ICM.spp.counts<-compICM.pub %>% group_by(Species, Sex) %>% summarize (N=n()) 
-ICM.spp.counts<-ICM.spp.counts %>% filter(N>=43) #43 = minimum sample size that was adequate for all 4 metrics
+ICM.spp.counts<-ICM.spp.counts %>% filter(N>=MinSize) #MinSize = minimum sample size that was adequate for all 4 metrics
 
 for (i in 1:nrow(ICM.spp.counts)){
   #make dataset of new critter, substitute it in for mouse
   species.name<-ICM.spp.counts$Species[i]
   species.sex<-ICM.spp.counts$Sex[i]
   mouse<-compICM.pub %>% filter(Species == species.name, Sex == species.sex)
+  
+  #make table of summary stats for total mouse population, mouse.stats
+  mouse.stats<-data.frame(Mu=rep(NA,nrow(ratio)),row.names=ratio[,1])
+  mouse.stats$Mu<-mouse[,ratio[,1]] %>% apply(.,2,mean)
+  mouse.stats$Sigma<-mouse[,ratio[,1]] %>% apply(.,2,sd)
+  mouse.stats$CV<-mouse.stats$Sigma / mouse.stats$Mu * 100
+  #confidence intervals, assuming normality, from Sokal and Rohlf
+  mouse.stats$M.CI.U=mouse.stats$Mu + mouse.stats$Sigma * 1.96
+  mouse.stats$M.CI.L=mouse.stats$Mu - mouse.stats$Sigma * 1.96
+  mouse.stats$S.CI.L<-(((nrow(mouse)-1) * (mouse.stats$Sigma)^2) /
+                         qchisq(c(0.975),df=nrow(mouse)-1)) %>% sqrt
+  mouse.stats$S.CI.U<-(((nrow(mouse)-1) * (mouse.stats$Sigma)^2) /
+                         qchisq(c(0.025),df=nrow(mouse)-1)) %>% sqrt
+  
   #and take off running
-  source("molar_ratio_sample_model.R")
   # source(paste(locateScripts,"molar_ratio_sample_size.R",sep="/"))
   source("molar_ratio_sample_size.R")
 }

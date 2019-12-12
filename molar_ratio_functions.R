@@ -1,20 +1,3 @@
-#functions for molar ratio
-# #calculate a 95% normal confidence interval from a sample, or resample
-# calc.ci<-function(sample,X.variable,Y.variable){ #function to get elements of 95% CI circle
-#   #calculate mean of sample
-#   mean.xy<-c(mean(sample[,X.variable]), mean(sample[,Y.variable])) %>% 
-#     matrix(nrow=1,dimnames=list("mean",c(X.variable,Y.variable))) %>% data.frame
-#   #calculate distances between each subsample and mean, 
-#   distances<-((sample[,X.variable]-mean.xy[,X.variable])^2 +
-#                 (sample[,Y.variable]-mean.xy[,Y.variable])^2) %>% 
-#     sqrt()
-#   #calculate  the 95% CI for those distances
-#   ci95<-quantile(distances,probs=c(0.95),na.rm=TRUE)
-#   #make into a data frame for ggplot
-#   ci<-cbind(mean.xy,ci95)
-#   return(ci)
-# }
-
 #function is C. Roseman's function from Roseman and Delezene 2019
 IA.dist.new <- function(V.m1, V.m2 ,mu.m1, mu.m2,C.m1.m2){
   #calculate expected m3 area based on size of m1 and m2 and the ICM equation of Kavanagh

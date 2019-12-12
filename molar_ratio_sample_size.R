@@ -62,6 +62,7 @@ for(ratio.choice in 1:nrow(ratio)){
                       prop.sd.below.95ci=rep(NA,nrow(mouse)-1),
                       max.mean=rep(NA,nrow(mouse)-1),
                       min.mean=rep(NA,nrow(mouse)-1),
+                      avg.sd=rep(NA,nrow(mouse)-1),
                       N=rep(2:nrow(mouse)))
   for (i in 2:nrow(mouse)){
     #little object of the sample of means
@@ -79,6 +80,7 @@ for(ratio.choice in 1:nrow(ratio)){
       length(.)/replicates
     vs.true$prop.sd.below.95ci[i-1]<-which(resampled.sd < (ratio[ratio.choice,3] %>% CI[.,1])) %>% 
       length(.)/replicates
+    vs.true$avg.sd[i-1]<-mean(resampled.sd)
   }
   vs.true$ratio.name<-ratio[ratio.choice,1]
   if(ratio.choice==1){ sample.size.indicators<-vs.true }
@@ -92,6 +94,8 @@ sample.size.indicators$outside.mean<-(sample.size.indicators$prop.mean.above.95c
 sample.size.indicators$outside.var<-(sample.size.indicators$prop.sd.above.95ci + 
                                        sample.size.indicators$prop.sd.below.95ci) %>%
   round(.,3)
+sample.size.indicators$mean.var.wrong<-(sample.size.indicators$avg.sd > (ratio[ratio.choice,3] %>% CI[.,2]) )| 
+  (sample.size.indicators$avg.sd < (ratio[ratio.choice,3] %>% CI[.,1]) )
 
 # reformat results for various purposes --------
 #melt to to plot
@@ -109,7 +113,7 @@ resample.melted$outside<-(resample.melted$CI.lower > resample.melted$value) |
  
 #recast to write evaluation to a table
 sample.size.indicators.to.write<-sample.size.indicators %>%
-  select(N,ratio.name,outside.mean,outside.var) %>%
+  select(N,ratio.name,outside.mean,outside.var,mean.var.wrong) %>%
   melt(.,id=c("N","ratio.name")) %>%
   dcast(.,N ~ ratio.name + variable)
 write.csv(sample.size.indicators.to.write,

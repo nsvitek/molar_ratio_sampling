@@ -7,7 +7,7 @@ library(ggplot2) #plot
 # library(gridExtra) #plot
 library(ggforce) #allows drawing circles and ellipses
 # library(scales) #allows use of standard colors. May not be completely necessary
-# library(ggthemes) #to get Paul Tol colors
+library(ggthemes) #to get Paul Tol colors
 library(readxl) #read raw data
 library(reshape2) #for reformatting & comparing CV, measurement error data
 library(lmodel2) #for RMA regression
@@ -27,6 +27,13 @@ source("molar_ratio_functions.R")
 # settings ------
 replicates<-999 #bootstrap number, low for now, increase for final calcs
 # n<-10 #resample number
+#figure publication settings
+#single column: 88 mm, double column: 180 mm
+col.width<- 88
+page.width<-188
+max.height<-240
+fig.dpi<-300
+fig.units<-"mm"
 
 # load data -----------
 setwd(locateData)
@@ -38,14 +45,8 @@ compICM.raw<-read_excel("input/comparison_ICM_asahara.xlsx")
 compICM2.raw<-read_excel("input/comparison_ICM_roseman.xlsx", sheet = "Molar Size Data", na="NA")
 #and also Labonne et al's dataset for comparison
 compICM3.raw<-read_excel("input/comparison_ICM_labonne.xlsx")
-
 #comparative MMC data from Monson et al. 2019
 compMMC.raw<-read_excel("input/comparison_MMC_monson.xlsx")
-#read in the data of macrocranion
-fossil.raw<-read_excel("input/measurements_macrocranion.xlsx")
-#read in data pertaining to CV of raw lengths and areas
-# comp.areaCV.raw<-read_excel("inhibitory_results/input/comparison_CA_CV.xlsx")
-# comp.lengthCV.raw
 
 # format cotton mouse --------
 mouse.raw$specimen<-paste(mouse.raw$institution,mouse.raw$catalog_number,sep="-")
@@ -108,8 +109,11 @@ compICM2.raw$m3.m1A<-compICM2.raw$M3.Area/compICM2.raw$M1.Area
 compICM2.raw$m2.m1A<-compICM2.raw$M2.Area/compICM2.raw$M1.Area
 compICM2<-compICM2.raw[!is.na(compICM2.raw$m3.m1A),]
 compICM2<-compICM2[!is.na(compICM2$m2.m1A),]
+#minor formatting for standardized writing
+compICM2$Sex[which(compICM2$Sex=="M")]<-"male"
+compICM2$Sex[which(compICM2$Sex=="F")]<-"female"
 compICM2$Order<-"Primates"
-compICM2$Reference<-"Roseman and Delezene 2019"
+compICM2$Source<-"Roseman and Delezene 2019"
 
 #format Labonne data
 colnames(compICM3.raw)<-c("family","subfamily","Species","p4","M1.Area","M2.Area","M3.Area",
@@ -122,7 +126,7 @@ exclude.me<-compICM3.spp.counts$Species[which(compICM3.spp.counts$N==1)]
 compICM3<-filter(compICM3,Species %in% exclude.me == FALSE)
 compICM3$Order<-"Rodentia"
 compICM3$Sex<-"unknown"
-compICM3$Reference<-"Labonne et al. 2012"
+compICM3$Source<-"Labonne et al. 2012"
 
 compICM.pub<-rbind(compICM2,compICM3)
 #how many species remaining?
@@ -137,13 +141,13 @@ compICM2add$Sex<-"unknown"
 compICM2add$M1.Area<-mouse$m1.area
 compICM2add$M2.Area<-mouse$m2.area
 compICM2add$M3.Area<-mouse$m3.area
-compICM2add$Reference<-"this study"
+compICM2add$Source<-"this study"
 compICM.indv<-rbind(compICM.pub,compICM2add)
 
 #summarize individual-level data so it can be collated with population-level data
 ICM.CV<- compICM.indv %>% group_by(Order, Species, Sex) %>%  
   summarize(N=n(), m3m1.mean=mean(m3.m1A), m3m1.SD=sd(m3.m1A),m3m1.CV=sd(m3.m1A)/mean(m3.m1A)*100,
-            m2m1.mean=mean(m2.m1A), m2m1.SD=sd(m2.m1A),m2m1.CV=sd(m2.m1A)/mean(m2.m1A)*100,Reference=unique(Reference))
+            m2m1.mean=mean(m2.m1A), m2m1.SD=sd(m2.m1A),m2m1.CV=sd(m2.m1A)/mean(m2.m1A)*100,Source=unique(Source))
 colnames(ICM.CV)[which(colnames(ICM.CV)=="Sex")]<-"condition"
 
 #organize collated population-level ICM ratio data into standardized set of variables
@@ -151,9 +155,16 @@ compICM.raw$N<-as.integer(compICM.raw$N)
 compICM.raw$m2m1.CV<-(compICM.raw$m2m1.SD/compICM.raw$m2m1.mean) *100
 compICM.raw$m3m1.CV<-(compICM.raw$m3m1.SD/compICM.raw$m3m1.mean) *100
 compICM.pop<-compICM.raw %>% bind_rows(.,ICM.CV)
+#reorder columns
+compICM.pop<-select(compICM.pop,Order, Species, condition, N, everything(), Source)
+#round numbers for easier viewing
+compICM.pop[,6:11]<-round(compICM.pop[,6:11],3)
+#write to table for publication
+write.csv(compICM.pop,"output/SI_TableX_AreasByPop.csv",row.names=FALSE)
 
+#how many entries again?
 compICM.pop %>% group_by(Species) %>% summarize (N=n()) %>% nrow -1 #-1 to not double-count new Peromyscus measures
-write.csv(compICM.pop,"output/SI_TableX_AreasByPop.csv")
+
 # format MMC comparative data -----
 #clean out singleton species
 MMC.spp.counts<-compMMC.raw %>% group_by(Species) %>% summarize (N=n()) 
@@ -184,12 +195,20 @@ mouse.MMC.2add<-dplyr::select(mouse.MMC.2add,-m3.m1L)
 #which are/will be published already in separate tabels
 compMMC<-rbind(compMMC.raw,mouse.MMC.2add)
 
-# format fossils -----
-fossil.raw$length<-apply(cbind(fossil.raw$length1,fossil.raw$length2,fossil.raw$length3),1,
-                         function(x) mean(as.numeric(x)))
-fossil.raw$width<-apply(cbind(fossil.raw$talonid_width1,fossil.raw$talonid_width2,
-                              fossil.raw$talonid_width3),1,function(x) mean(as.numeric(x)))
-fossil.raw$area<-fossil.raw$length * fossil.raw$width
+#MMC: calculate CV by species from Monson, gossypinus data
+MMC.CV<- compMMC %>% group_by(Order, Species) %>% 
+  summarize(N=n(), MMC.mean=mean(MMC), MMC.SD=sd(MMC), MMC.CV=sd(MMC)/mean(MMC)*100,
+            MMC2.mean=mean(MMC2), MMC2.SD=sd(MMC2), MMC2.CV=sd(MMC2)/mean(MMC2)*100)
+MMC.CV<-MMC.CV[complete.cases(MMC.CV),]
+
+#some final formatting
+MMC.CV.2Write<-MMC.CV
+MMC.CV.2Write$Source<-"Monson et al. 2019"
+MMC.CV.2Write$Source[which(MMC.CV.2Write$Species=="Peromyscus gossypinus length")]<-"this study"
+#round values for ease for ease of reading
+MMC.CV.2Write[,4:9]<-apply(MMC.CV.2Write[,4:9],1,round)
+write.csv(MMC.CV.2Write,"output/SI_TableX_LengthsByPop.csv")
+
 # calculate mouse measurement error ------
 source(paste(locateScripts,"molar_ratio_measurement_error.R",sep="/"))
 #output that you care about is avg.repeat
@@ -198,13 +217,6 @@ source(paste(locateScripts,"molar_ratio_measurement_error.R",sep="/"))
 source(paste(locateScripts,"molar_ratio_ICM_expectations.R",sep="/"))
 
 # standing variation in species -----
-#MMC: calculate CV by species from Monson, gossypinus data
-MMC.CV<- compMMC %>% group_by(Order, Species) %>% 
-  summarize(N=n(), MMC.mean=mean(MMC), MMC.SD=sd(MMC), MMC.CV=sd(MMC)/mean(MMC)*100,
-            MMC2.mean=mean(MMC2), MMC2.SD=sd(MMC2), MMC2.CV=sd(MMC2)/mean(MMC2)*100)
-MMC.CV<-MMC.CV[complete.cases(MMC.CV),]
-write.csv(MMC.CV,"output/SI_TableX_LengthsByPop.csv")
-
 #create object for plotting
 MMC.CV$condition<-"unknown"
 CV.survey<-bind_rows(select(compICM.pop,Order,Species,condition,m2m1.CV,m3m1.CV) %>% melt(id=c("Order","Species","condition")),
@@ -244,11 +256,12 @@ pop.sizes<-mouse %>% group_by(state) %>% summarize(n()) #calculate sample size f
 
 #pairwise U-test with Bonferroni correction approach following Asahara 2014
 U.MMC<-Pairwise.U(mouse$m3.m1L,group.var)
+U.MMC2<-Pairwise.U(mouse$m2.m1L,group.var)
 U.ICM31<-Pairwise.U(mouse$m3.m1A,group.var)
 U.ICM21<-Pairwise.U(mouse$m2.m1A,group.var)
 
-cbind(U.MMC, U.ICM21[,5:8], U.ICM31[,5:8]) %>% 
-  write.csv(.,"output/gossypinus_population_Utest_M23.csv")
+cbind(U.MMC, U.MMC2[,5:8], U.ICM31[,5:8], U.ICM21[,5:8]) %>% 
+  write.csv(.,"output/TableX_gossypinus_population_Utest_M32LA.csv",row.names=FALSE)
 
 #Alternate approach, but provides similar results.
 # #bootstrap ANOVA approach
@@ -291,11 +304,12 @@ mouse.stats$S.CI.U<-(((nrow(mouse)-1) * (mouse.stats$Sigma)^2) /
 #make a table of CVs by state
 ratio.pop.CV<- mouse %>% group_by(state) %>% 
   summarize(N=n(),CV.MMC=sd(m3.m1L)/mean(m3.m1L)*100,mean.MMC=mean(m3.m1L),
+            CV.MMC2=sd(m2.m1L)/mean(m2.m1L)*100,mean.MMC2=mean(m2.m1L),
             CV.m3m1=sd(m3.m1A)/mean(m3.m1A)*100,mean.m3m1=mean(m3.m1A),
             CV.m2m1=sd(m2.m1A)/mean(m2.m1A)*100,mean.m2m1=mean(m2.m1A)) 
 #add total
-ratio.pop.CV.2<-rbind(select(ratio.pop.CV,state,CV.MMC,CV.m3m1,CV.m2m1),
-                      c("Total",mouse.stats$CV[1],mouse.stats$CV[2],mouse.stats$CV[3])) %>%
+ratio.pop.CV.2<-rbind(select(ratio.pop.CV,state,CV.MMC,CV.MMC2,CV.m3m1,CV.m2m1),
+                      c("Total",mouse.stats$CV[1],mouse.stats$CV[2],mouse.stats$CV[3],mouse.stats$CV[4])) %>%
   melt(id="state")
 #take back out of character
 ratio.pop.CV.2$value<-as.numeric(ratio.pop.CV.2$value)
@@ -303,9 +317,10 @@ ratio.pop.CV.2$value<-as.numeric(ratio.pop.CV.2$value)
 #does pooling localities result in a higher CV?
 mice.high.CV<-(which(ratio.pop.CV$CV.m3m1 < mouse.stats$CV[which(ratio[,1]=="m3.m1A")]) %>% length) + 
   (which(ratio.pop.CV$CV.m2m1 < mouse.stats$CV[which(ratio[,1]=="m2.m1A")]) %>% length) +
-  (which(ratio.pop.CV$CV.MMC < mouse.stats$CV[which(ratio[,1]=="m2.m1L")]) %>% length)
+  (which(ratio.pop.CV$CV.MMC < mouse.stats$CV[which(ratio[,1]=="m3.m1L")]) %>% length) +
+  (which(ratio.pop.CV$CV.MMC2 < mouse.stats$CV[which(ratio[,1]=="m2.m1L")]) %>% length)
 #here, "successes" are where pooled CV is higher than locality cV
-binom.test(mice.high.CV,12,alternative = "greater") #no
+binom.test(mice.high.CV,16,alternative = "greater") #no
 
 # #check to see if size CV increases with pooled sample (which it could be based on plotted data)
 # mouse.total.size.CV<-c(sd(mouse$m3.area)/mean(mouse$m3.area)*100,
@@ -359,8 +374,7 @@ ratio.sex.CV<-bind_rows(ICM.di.sex.CV,ICM.di.spp.CV) %>%
   select(Species, Sex, CV.m3m1, CV.m2m1)
 ratio.sex.CV.2<-melt(ratio.sex.CV, id=c("Species","Sex"))
 
-# sensitivity of mean and sd of ratios to sample size -----------
-
+# sensitivity of mean and sd of ratios to sample size ----------
 #which parameters to test
 resampled.names<-c("N","MMC.mean","MMC.SD",#"MMC.max","MMC.min", #maxima and minima are here just in case you're curious
                    "MMC2.mean","MMC2.SD",#"MMC2.max","MMC2.min",
@@ -406,16 +420,15 @@ for (sample.n in 1:50){
       pseudopop$MMC.mean[j]<-sample(m3L.sample,size=1)/sample(m1L.sample,size=1)
       pseudopop$MMC2.mean[j]<-sample(m2L.sample,size=1)/sample(m1L.sample,size=1)
     }
-    sim.isolate$m2m1.SD[i]<-pseudopop$m2m1A %>% sd
-    sim.isolate$m3m1.SD[i]<-pseudopop$m3m1A %>% sd
-    sim.isolate$MMC.SD[i]<-pseudopop$m3m1L %>% sd
-    sim.isolate$MMC2.SD[i]<-pseudopop$m2m1L %>% sd
+    sim.isolate$m2m1.SD[i]<-pseudopop$m2m1.mean %>% sd
+    sim.isolate$m3m1.SD[i]<-pseudopop$m3m1.mean %>% sd
+    sim.isolate$MMC.SD[i]<-pseudopop$MMC.mean %>% sd
+    sim.isolate$MMC2.SD[i]<-pseudopop$MMC2.mean %>% sd
   }
-  
-  sim.isolate$m2.m1A<-sim.isolate$m2.area/sim.isolate$m1.area
-  sim.isolate$m3.m1A<-sim.isolate$m3.area/sim.isolate$m1.area
-  sim.isolate$m3.m1L<-sim.isolate$m3.length/sim.isolate$m1.length
-  sim.isolate$m2.m1L<-sim.isolate$m2.length/sim.isolate$m1.length
+  sim.isolate$m2m1.mean<-sim.isolate$m2.area/sim.isolate$m1.area
+  sim.isolate$m3m1.mean<-sim.isolate$m3.area/sim.isolate$m1.area
+  sim.isolate$MMC.mean<-sim.isolate$m3.length/sim.isolate$m1.length
+  sim.isolate$MMC2.mean<-sim.isolate$m2.length/sim.isolate$m1.length
   if(sample.n==1){simulation.stats<-as.data.frame(sim.isolate)}
   if(sample.n>=2){simulation.stats<-rbind(simulation.stats,sim.isolate)}
 }
@@ -475,16 +488,6 @@ sim.melted$CI.upper<-apply(sim.melted,1, function(x) CI[x[2],2])
 sim.melted$CI.lower<-apply(sim.melted,1, function(x) CI[x[2],1])
 sim.melted$outside<-(sim.melted$CI.lower > sim.melted$value) |
   (sim.melted$CI.upper < sim.melted$value)
-
-composite.size.plot<-ggplot(data=sim.melted, aes(x=N,y=value))+
-  facet_grid(facets = statistic + tooth ~ dimension, scales="free_y", switch="y") +
-  geom_point(alpha=0.25,aes(color=outside)) +
-  geom_smooth(color="black",method="auto") + #make smoother, prettier?
-  scale_color_manual(values=c("gray","red")) +
-  ggtitle(species.name) + theme_minimal() + 
-  theme(legend.position="none",axis.title.y=element_blank(),strip.placement = "outside",
-                            plot.title=element_text(face="italic"))
-ggsave(composite.size.plot, filename = paste("output/","composite_sample_size.pdf",sep=""), dpi = 300)
 
 ## #Tables ------
 #show distribution of CV, SD, Mean, Range for sample sizes for each metric?

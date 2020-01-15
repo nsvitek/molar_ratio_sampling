@@ -92,16 +92,24 @@ simstats2plot$dimension[grepl("MMC",simstats2plot$variable,perl=TRUE)]<-"Length"
 simstats2plot$ID<-rep(c(1:replicates),16)
 simstats2plot2<-dcast(simstats2plot, ID+ dimension + N~ tooth)
 
+mouse2plot<-select(mouse,specimen,m2.m1A,m3.m1A,m2.m1L,m3.m1L) %>% melt(.,id="specimen")
+mouse2plot$tooth<-"M3"
+mouse2plot$tooth[grepl("2",mouse2plot$variable,perl=TRUE)]<-"M2"
+mouse2plot$dimension<-"Area"
+mouse2plot$dimension[grepl("L",mouse2plot$variable,perl=TRUE)]<-"Length"
+mouse2plot2<-dcast(mouse2plot, specimen + dimension ~ tooth)
+mouse2plot3<-mouse2plot2[rep(seq_len(nrow(mouse2plot2)), 4), ]
+mouse2plot3$N<-rep(c(1,2,5,10),each=nrow(mouse)*2)
+
 composite.vs.variation<-ggplot()+ 
   geom_point(data=simstats2plot2,
              aes(x=M2,y=M3),alpha=0.5,color=ptol_pal()(2)[1],size=0.33) +
+  geom_point(data=mouse2plot3,aes(x=M2,y=M3),size=1,color=ptol_pal()(2)[2]) +
   facet_grid(facets = N ~ dimension, scales="fixed") +
-  geom_point(data=mouse,aes(x=m2.m1A, y=m3.m1A),size=1,color=ptol_pal()(2)[2]) +
   xlab(expr(M[2]:M[1]))+ylab(expr(M[3]:M[1])) +
   theme_minimal() 
 ggsave(composite.vs.variation, filename = paste("output/","FigX_composite_vs_variation.pdf",sep=""),
        dpi = fig.dpi,width=col.width,height=col.width*2,units=fig.units)
-
 
 #show relationship between sample size and true values of mean and SD
 composite.size.plot<-ggplot(data=sim.melted, aes(x=N,y=value))+

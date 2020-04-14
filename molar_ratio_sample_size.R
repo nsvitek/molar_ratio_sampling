@@ -94,8 +94,15 @@ sample.size.indicators$outside.mean<-(sample.size.indicators$prop.mean.above.95c
 sample.size.indicators$outside.var<-(sample.size.indicators$prop.sd.above.95ci + 
                                        sample.size.indicators$prop.sd.below.95ci) %>%
   round(.,3)
-sample.size.indicators$mean.var.wrong<-(sample.size.indicators$avg.sd > (ratio[ratio.choice,3] %>% CI[.,2]) )| 
-  (sample.size.indicators$avg.sd < (ratio[ratio.choice,3] %>% CI[.,1]) )
+
+#this tally hard to calculate in a single line because of changing ratio choices. Resorting to for-loop.
+sample.size.indicators$mean.var.wrong<-NULL
+for (i in 1:nrow(sample.size.indicators)){
+  ratio.pick<-which(ratio[,1]==sample.size.indicators$ratio.name[i])
+  sample.size.indicators$mean.var.wrong[i]<-(sample.size.indicators$avg.sd[i] > (ratio[ratio.pick,3] %>% CI[.,2]) )| 
+    (sample.size.indicators$avg.sd[i] < (ratio[ratio.pick,3] %>% CI[.,1]) )
+}
+
 
 # reformat results for various purposes --------
 #melt to to plot

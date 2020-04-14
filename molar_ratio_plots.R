@@ -1,12 +1,12 @@
 ###REDO THESE!
 library(ggthemes) #to get Paul Tol colors
-
+single.column.width<-3.46
+double.column.width<-7
 color.mouse<-ptol_pal()(4)
 color.order<-ptol_pal()(length(unique(CV.survey2$Order)))
 # CV in extant species -------
 #CV of ratios by locality, Peromyscus gossypinus
-####plot needs fixing up of axes, labels.
-cairo_pdf("output/CV_geo_subsample.pdf")
+cairo_pdf("output/CV_geo_subsample.pdf",width=single.column.width,height=single.column.width)
 ggplot(data=ratio.pop.CV.2, aes(x=variable,y=value)) +
   geom_point(data=filter(ratio.pop.CV.2,state=="Total"),color="black",size=3) +
   geom_point(data=filter(ratio.pop.CV.2,state!="Total"), aes(color=state),size=2) +
@@ -15,26 +15,8 @@ ggplot(data=ratio.pop.CV.2, aes(x=variable,y=value)) +
   theme_minimal()
 dev.off()
 
-#sense of ratio variation, Peromyscus gossypinus
-####plot needs fixing up of axes, labels.
-cairo_pdf("output/ICM_geo_gossy.pdf")
-ggplot(mouse,aes(x=m2.m1A, y=m3.m1A, colour=state))+
-  stat_chull(fill=NA)+
-  geom_point(size=1.5)+
-  theme_minimal()
-dev.off()
-
-cairo_pdf("output/MMC_geo_gossy.pdf")
-ggplot(mouse,aes(x=m2.m1L, y=m3.m1L, colour=state))+
-  stat_chull(fill=NA)+
-  geom_point(size=1.5)+
-  theme_minimal()
-dev.off()
-
-
 #CV of ratios by sex, Primates
-#####plots needs fixing up of axes, labels
-cairo_pdf("output/CV_geo_subsample.pdf")
+cairo_pdf("output/CV_sex_subsample.pdf",width=single.column.width,height=single.column.width)
 ggplot(data=ratio.sex.CV.2, aes(x=Species,y=value)) +
   facet_grid(rows = vars(variable),scales="free_y") +
   geom_point(data=filter(ratio.sex.CV.2,Sex=="Total"),color="black",size=3) +
@@ -42,36 +24,56 @@ ggplot(data=ratio.sex.CV.2, aes(x=Species,y=value)) +
   theme_minimal()
 dev.off()
 
-#sense of how ratios vary by sex, Primates
-#####plots needs fixing up of axes, labels
-cairo_pdf("output/ICM_sex_primates.pdf")
-ggplot(select(ICM.dimorph,Species,Sex,m3.m1A,m2.m1A) %>% melt(id=c("Species","Sex")),
-  aes(x=Species, y=value, fill=Sex))+
-  facet_grid(rows = vars(variable),scales="free_y") +
-    geom_boxplot()  + theme_minimal()
-dev.off()
+
+# #sense of ratio variation, Peromyscus gossypinus
+# ####plot needs fixing up of axes, labels.
+# cairo_pdf("output/ICM_geo_gossy.pdf")
+# ggplot(mouse,aes(x=m2.m1A, y=m3.m1A, colour=state))+
+#   stat_chull(fill=NA)+
+#   geom_point(size=1.5)+
+#   theme_minimal()
+# dev.off()
+
+# cairo_pdf("output/MMC_geo_gossy.pdf")
+# ggplot(mouse,aes(x=m2.m1L, y=m3.m1L, colour=state))+
+#   stat_chull(fill=NA)+
+#   geom_point(size=1.5)+
+#   theme_minimal()
+# dev.off()
+
+# #sense of how ratios vary by sex, Primates
+# #####plots needs fixing up of axes, labels
+# cairo_pdf("output/ICM_sex_primates.pdf")
+# ggplot(select(ICM.dimorph,Species,Sex,m3.m1A,m2.m1A) %>% melt(id=c("Species","Sex")),
+#   aes(x=Species, y=value, fill=Sex))+
+#   facet_grid(rows = vars(variable),scales="free_y") +
+#     geom_boxplot()  + theme_minimal()
+# dev.off()
 
 #show distribution of empirical CVs
 #no longer a point in it being in regard to sample size. WHAT DO YOU WANT TO SHOW?
 #####plots needs fixing up of axes, labels
-cairo_pdf("output/CV_Species.pdf")
+cairo_pdf("output/FigX_CV_Species.pdf",width=double.column.width,height=single.column.width)
 ggplot(data=CV.survey2, aes(x=M2,y=M3,color=Order,shape=Order))+
   facet_grid(rows = vars(dimension),scales="free_y") +
   scale_color_manual(values=color.order)+
-  geom_point() + theme_minimal()
+  geom_point() + theme_minimal() +
+  xlab(expression(CV(M[2]/M[1]))) +
+  ylab(expression(CV(M[3]/M[1])))
 dev.off()
 
 
 # ICM expectations ------
 ####THESE TWO RMA PLOTS STILL NEED WORK
 pdf("output/mouse_ICM_RMA_area.pdf") 
-plot(mouse.RMA.model.a,"SMA")
+plot(mouse.RMA.model.a,"SMA",main=NULL,xlab=expr(M[2]:M[1]),ylab=expr(M[3]:M[1]),
+     pch=21,bg="black")
 abline(a=mouse.RMA.model.a$regression.results$Intercept[3], 
        b=mouse.RMA.model.a$regression.results$Slope[3], col="red",lwd=2) #highlight RMA
 abline(a=-1, b=2,col="black") #ICM slope
 dev.off()
 
-pdf("output/mouse_ICM_RMA_length.pdf", width=col.width*10/2.54,height=col.width*10/2.54)
+pdf("output/mouse_ICM_RMA_length.pdf")
 plot(mouse.RMA.model.l,"SMA",main=NULL,xlab=expr(M[2]:M[1]),ylab=expr(M[3]:M[1]),
      pch=21,bg="black")
 abline(a=mouse.RMA.model.l$regression.results$Intercept[3], 

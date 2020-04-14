@@ -35,7 +35,7 @@ max.height<-240
 fig.dpi<-300
 fig.units<-"mm"
 
-# load data -----------
+# load data ---------
 setwd(locateData)
 #read in raw data
 mouse.raw<-read_excel("input/peromyscus_gossypinus_icm.xlsx")
@@ -45,6 +45,7 @@ compICM.raw<-read_excel("input/comparison_ICM_asahara.xlsx")
 compICM2.raw<-read_excel("input/comparison_ICM_roseman.xlsx", sheet = "Molar Size Data", na="NA")
 #and also Labonne et al's dataset for comparison
 compICM3.raw<-read_excel("input/comparison_ICM_labonne.xlsx")
+
 #comparative MMC data from Monson et al. 2019
 compMMC.raw<-read_excel("input/comparison_MMC_monson.xlsx")
 
@@ -206,7 +207,7 @@ MMC.CV.2Write<-MMC.CV
 MMC.CV.2Write$Source<-"Monson et al. 2019"
 MMC.CV.2Write$Source[which(MMC.CV.2Write$Species=="Peromyscus gossypinus length")]<-"this study"
 #round values for ease for ease of reading
-MMC.CV.2Write[,4:9]<-apply(MMC.CV.2Write[,4:9],1,round)
+MMC.CV.2Write[,4:9]<-apply(MMC.CV.2Write[,4:9],1,round,3)
 write.csv(MMC.CV.2Write,"output/SI_TableX_LengthsByPop.csv")
 
 # calculate mouse measurement error ------
@@ -261,7 +262,7 @@ U.ICM31<-Pairwise.U(mouse$m3.m1A,group.var)
 U.ICM21<-Pairwise.U(mouse$m2.m1A,group.var)
 
 cbind(U.MMC, U.MMC2[,5:8], U.ICM31[,5:8], U.ICM21[,5:8]) %>% 
-  write.csv(.,"output/TableX_gossypinus_population_Utest_M32LA.csv",row.names=FALSE)
+  write.csv(.,"output/TableX_gossypinus_population_Utest.csv",row.names=FALSE)
 
 #Alternate approach, but provides similar results.
 # #bootstrap ANOVA approach
@@ -364,6 +365,10 @@ for (i in 1:n.spp){
   m2m1.U<-rbind(m2m1.U,
                 Pairwise.U(sample.choice$m2.m1A,sample.choice$Sex))
 }
+
+cbind(m3m1.U, m2m1.U) %>% 
+  write.csv(.,"output/TableX_primate_sex_Utest.csv",row.names=TRUE)
+
 row.names(m3m1.U)<-row.names(m2m1.U)<-ICM.di.spp.CV$Species
 binom.test(sum(n.cv),n.spp*2*2,alternative = "greater") #no
 # binom.test(sum(n.size),n.spp*2*2,alternative = "greater")

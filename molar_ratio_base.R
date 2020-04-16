@@ -65,6 +65,7 @@ mouse$m3.length<-apply(cbind(mouse$m3.l1,mouse$m3.l2,mouse$m3.l3),1,mean)
 mouse$m3.width<-apply(cbind(mouse$m3.w1,mouse$m3.w2,mouse$m3.w3),1,mean)
 
 mouse$total.length<-mouse$m1.length+mouse$m2.length+mouse$m3.length
+
 #clean data
 mouse<-dplyr::select(mouse,specimen,state,county,sex,m1.length,m1.width,m2.length,m2.width,
                      m3.length,m3.width,total.length)
@@ -73,6 +74,9 @@ mouse$m1.area<-mouse$m1.length*mouse$m1.width
 mouse$m2.area<-mouse$m2.length*mouse$m2.width
 mouse$m3.area<-mouse$m3.length*mouse$m3.width
 mouse$total.area<-mouse$m1.area+mouse$m2.area+mouse$m3.area
+
+#write average measurements for reporting
+write.csv(mouse,"output/SI_TableX_peromyscus_measures.csv")
 
 #calculate proportional size of molars relative to total molar size
 mouse$prop.m1A<-mouse$m1.area/mouse$total.area

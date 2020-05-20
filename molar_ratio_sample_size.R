@@ -136,4 +136,4 @@ sample.size.plot<-ggplot(data=resample.melted, aes(x=N,y=value))+
   ggtitle(species.name) + theme_minimal() + 
   theme(legend.position="none",axis.title.y=element_blank(),strip.placement = "outside",
         plot.title=element_text(face="italic"))
-ggsave(sample.size.plot, filename = paste("output/",species.name,"_resample.pdf",sep=""), dpi = 300)
+ggsave(sample.size.plot, filename = paste("output/",species.name,"_resample.png",sep=""), dpi = 600)

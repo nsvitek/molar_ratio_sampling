@@ -122,6 +122,6 @@ composite.size.plot<-ggplot(data=sim.melted, aes(x=N,y=value))+
   ggtitle(species.name) + theme_minimal() +
   theme(legend.position="none",axis.title.y=element_blank(),strip.placement = "outside",
         plot.title=element_text(face="italic"))
-ggsave(composite.size.plot, filename = paste("output/","composite_sample_size.pdf",sep=""),
+ggsave(composite.size.plot, filename = paste("output/","composite_sample_size.png",sep=""),
        dpi = fig.dpi,width=col.width,height=col.width*2,units=fig.units)
 

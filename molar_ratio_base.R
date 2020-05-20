@@ -17,7 +17,7 @@ library(stringr) #using str_detect for sample size resampling in non-mice
 # locateScripts<-"C:/cygwin/home/N.S/scripts/molar_ratio_sampling"
 locateScripts<-"C:/scripts/molar_ratio_sampling"
 # locateData<-"C:/Users/N.S/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
-locateData<-"D:/Dropbox/Documents/research/vitek-etal_inhibitory-cascade-isolated"
+locateData<-"D:/Dropbox/Documents/research/mammals/vitek-etal_inhibitory-cascade-isolated"
 
 setwd(locateScripts)
 # source("../scripts/function_bootstrap.R") #may not need this anymore. 
@@ -32,7 +32,7 @@ replicates<-999 #bootstrap number, low for now, increase for final calcs
 col.width<- 88
 page.width<-188
 max.height<-240
-fig.dpi<-300
+fig.dpi<-600
 fig.units<-"mm"
 
 # load data ---------
@@ -211,7 +211,7 @@ MMC.CV.2Write<-MMC.CV
 MMC.CV.2Write$Source<-"Monson et al. 2019"
 MMC.CV.2Write$Source[which(MMC.CV.2Write$Species=="Peromyscus gossypinus length")]<-"this study"
 #round values for ease for ease of reading
-MMC.CV.2Write[,4:9]<-apply(MMC.CV.2Write[,4:9],1,round,3)
+MMC.CV.2Write[,c(4:9)]<-apply(MMC.CV.2Write[,c(4:9)],2,function(x) round(x,3))
 write.csv(MMC.CV.2Write,"output/SI_TableX_LengthsByPop.csv")
 
 # calculate mouse measurement error ------
@@ -442,7 +442,7 @@ for (sample.n in 1:50){
   if(sample.n>=2){simulation.stats<-rbind(simulation.stats,sim.isolate)}
 }
 save(simulation.stats,file = "output/composite_simulation_stats.RData")
-
+load("output/composite_simulation_stats.RData")
 # compare stats between simulated and real samples ------
 #objects are simulation.stats and mouse.stats and ratio
 sim.metric.names<-c("too.big","too.small","too.little","too.much")

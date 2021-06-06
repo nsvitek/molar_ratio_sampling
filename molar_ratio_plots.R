@@ -1,4 +1,4 @@
-###REDO THESE!
+
 library(ggthemes) #to get Paul Tol colors
 single.column.width<-3.46
 double.column.width<-7
